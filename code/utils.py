@@ -162,7 +162,7 @@ def generate_submission_file(data_file, preds):
 
     for index, items in enumerate(preds):
         for item in items:
-            result.append((users[index], idx2item['item'][item]))
+            result.append((users[index], int(idx2item['item'][item])))
 
     pd.DataFrame(result, columns=["user", "item"]).to_csv(
         "output/submission.csv", index=False
