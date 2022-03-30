@@ -1,0 +1,7 @@
+[sweep 실행 방법]
+1. sweep.yaml에 원하는 파라미터 지정(파일 생성해도 됨)
+
+2. $ wandb sweep "./wandb/sweep.yaml"
+
+3. Run sweep agent with: ~~에 있는 명령어 실행
+ex) $ wandb agent recsys16/code/20gj3kkf
