@@ -80,6 +80,7 @@ def main():
     args.data_file = args.data_dir + "train_ratings.csv"
     item2attribute_file = args.data_dir + args.data_name + "_item2attributes.json"
 
+    # 데이터 파일 로드
     user_seq, max_item, valid_rating_matrix, test_rating_matrix, _ = get_user_seqs(
         args.data_file
     )
@@ -99,37 +100,37 @@ def main():
     # set item score in train set to `0` in validation
     args.train_matrix = valid_rating_matrix
 
-    # save model
+    # save model, Sampler 부분
     checkpoint = args_str + ".pt"
     args.checkpoint_path = os.path.join(args.output_dir, checkpoint)
 
     train_dataset = SASRecDataset(args, user_seq, data_type="train")
-    train_sampler = RandomSampler(train_dataset)
+    train_sampler = RandomSampler(train_dataset) # 배치를 빼낼때 섞어서 빼낸다 -> user 들을 섞는 것
     train_dataloader = DataLoader(
         train_dataset, sampler=train_sampler, batch_size=args.batch_size
     )
 
     eval_dataset = SASRecDataset(args, user_seq, data_type="valid")
-    eval_sampler = SequentialSampler(eval_dataset)
+    eval_sampler = SequentialSampler(eval_dataset) # 배치를 빼낼때 순차적으로 빼낸다
     eval_dataloader = DataLoader(
         eval_dataset, sampler=eval_sampler, batch_size=args.batch_size
     )
 
     test_dataset = SASRecDataset(args, user_seq, data_type="test")
-    test_sampler = SequentialSampler(test_dataset)
+    test_sampler = SequentialSampler(test_dataset) # 배치를 빼낼때 순차적으로 빼낸다
     test_dataloader = DataLoader(
         test_dataset, sampler=test_sampler, batch_size=args.batch_size
     )
 
     model = S3RecModel(args=args)
-    print(type(model))
+
     trainer = FinetuneTrainer(
         model, train_dataloader, eval_dataloader, test_dataloader, None, args
     )
 
     print(args.using_pretrain)
     if args.using_pretrain:
-        pretrained_path = os.path.join(args.output_dir, "Pretrain.pt")
+        pretrained_path = os.path.join(args.output_dir, "Pretrain.pt") # pretrain.pt 지정한거로 바꿔서 돌리자
         try:
             trainer.load(pretrained_path)
             print(f"Load Checkpoint From {pretrained_path}!")

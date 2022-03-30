@@ -135,7 +135,7 @@ class SelfAttention(nn.Module):
         return hidden_states
 
 
-class Intermediate(nn.Module):
+class Intermediate(nn.Module): # Encoder 블럭의 마지막 구성요소 POint-wise FFn
     def __init__(self, args):
         super(Intermediate, self).__init__()
         self.dense_1 = nn.Linear(args.hidden_size, args.hidden_size * 4)

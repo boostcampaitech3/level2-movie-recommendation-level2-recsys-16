@@ -27,9 +27,12 @@ def check_path(path):
         print(f"{path} created")
 
 
+# negative sample part
+# 아이템을 랜덤하게 뽑아서, 뽑은 아이템이 유저의 아이템 셋에 없으면 그 아이템을 리턴
+
 def neg_sample(item_set, item_size):
     item = random.randint(1, item_size - 1)
-    while item in item_set:
+    while item in item_set: # 빵꾸가 안뚫린 유저의 아이템 셋
         item = random.randint(1, item_size - 1)
     return item
 
@@ -153,6 +156,7 @@ def generate_rating_matrix_submission(user_seq, num_users, num_items):
 
 
 def generate_submission_file(data_file, preds):
+
     rating_df = pd.read_csv(data_file)
     idx2item = pd.read_csv('/opt/ml/input/data/item2idx.tsv', sep='\t', index_col=1, names=['item'])
     users = rating_df["user"].unique()
@@ -170,16 +174,14 @@ def generate_submission_file(data_file, preds):
 
 def get_user_seqs(data_file):
     rating_df = pd.read_csv(data_file)
-    item2idx = pd.read_csv('/opt/ml/input/data/item2idx.tsv', sep='\t', index_col=0, names=['item_id'])
-    rating_df['item'] = rating_df['item'].map(lambda x: item2idx['item_id'][x])
     lines = rating_df.groupby("user")["item"].apply(list)
     user_seq = []
     item_set = set()
     for line in lines:
+
         items = line
         user_seq.append(items)
         item_set = item_set | set(items)
-
     max_item = max(item_set)
 
     num_users = len(lines)
@@ -201,8 +203,6 @@ def get_user_seqs(data_file):
 
 def get_user_seqs_long(data_file):
     rating_df = pd.read_csv(data_file)
-    item2idx = pd.read_csv('/opt/ml/input/data/item2idx.tsv', sep='\t', index_col=0, names=['item_id'])
-    rating_df['item'] = rating_df['item'].map(lambda x: item2idx['item_id'][x])
     lines = rating_df.groupby("user")["item"].apply(list)
     user_seq = []
     long_sequence = []
@@ -213,6 +213,7 @@ def get_user_seqs_long(data_file):
         user_seq.append(items)
         item_set = item_set | set(items)
     max_item = max(item_set)
+
     return user_seq, max_item, long_sequence
 
 
