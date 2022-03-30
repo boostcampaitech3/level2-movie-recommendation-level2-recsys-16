@@ -75,7 +75,11 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
     args.cuda_condition = torch.cuda.is_available() and not args.no_cuda
 
-    args.data_file = args.data_dir + "train_ratings.csv"
+
+    # 유저, 영화id, timestamp 찍힌 csv
+    args.data_file = args.data_dir + "train_ratings.csv" # 이것을 가지고 submission file 만듬
+
+
     item2attribute_file = args.data_dir + args.data_name + "_item2attributes.json"
 
     user_seq, max_item, _, _, submission_rating_matrix = get_user_seqs(args.data_file)

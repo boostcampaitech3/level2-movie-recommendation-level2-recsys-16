@@ -45,7 +45,7 @@ class PretrainDataset(Dataset):
         masked_item_sequence.append(self.args.mask_id)
         neg_items.append(neg_sample(item_set, self.args.item_size))
 
-        # Segment Prediction
+        # Segment Prediction -> 민규님이 보셨으면 좋겟다고 하신 부분
         if len(sequence) < 2:
             masked_segment_sequence = sequence
             pos_segment = sequence
@@ -128,6 +128,9 @@ class PretrainDataset(Dataset):
         return cur_tensors
 
 # user_seq : 가장 중요한 2차원 matrix 로 된 각 유저가 어떤 영화를 봤는지를 표현해주는
+# negative sample: 어짜피 맞출 영화라면 학습효과가 떨어질 수 있겟다 -> 거리가 멀어보이는 영화에 대한 학습효과가 매우 적을수 있다
+#
+
 class SASRecDataset(Dataset):
     def __init__(self, args, user_seq, test_neg_items=None, data_type="train"):
         self.args = args
@@ -141,7 +144,7 @@ class SASRecDataset(Dataset):
         user_id = index
         items = self.user_seq[index]
 
-        assert self.data_type in {"tra in", "valid", "test", "submission"}
+        assert self.data_type in {"train", "valid", "test", "submission"}
 
         # items: [0, 1, 2, 3, 4, 5, 6]
 
