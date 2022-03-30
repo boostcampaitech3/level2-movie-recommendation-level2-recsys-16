@@ -83,7 +83,7 @@ class EarlyStopping:
         """Saves model when the performance is better."""
         if self.verbose:
             print(f"Better performance. Saving model ...")
-        # torch.save(model.state_dict(), self.checkpoint_path)
+        torch.save(model.state_dict(), self.checkpoint_path)
         # wandb 폴더에 모델 저장
         torch.save(model.state_dict(), os.path.join(wandb.run.dir, "best.pt"))
         # wandb.save(os.path.join(wandb.run.dir, "best.pt"))
