@@ -38,7 +38,7 @@ def neg_sample(item_set, item_size):
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self, checkpoint_path, patience=7, verbose=False, delta=0):
+    def __init__(self, checkpoint_path, patience=7, verbose=False, delta=0, sweep=False):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
@@ -55,6 +55,7 @@ class EarlyStopping:
         self.best_score = None
         self.early_stop = False
         self.delta = delta
+        self.sweep = sweep
 
     def compare(self, score):
         for i in range(len(score)):
@@ -81,11 +82,12 @@ class EarlyStopping:
 
     def save_checkpoint(self, score, model):
         """Saves model when the performance is better."""
-        if self.verbose:
+        if self.verbose and not self.sweep:
             print(f"Better performance. Saving model ...")
-        torch.save(model.state_dict(), self.checkpoint_path)
-        # wandb 폴더에 모델 저장
-        torch.save(model.state_dict(), os.path.join(wandb.run.dir, self.checkpoint_path.split('/')[-1]))
+        if not self.sweep:
+            torch.save(model.state_dict(), self.checkpoint_path)
+            # wandb 폴더에 모델 저장
+            torch.save(model.state_dict(), os.path.join(wandb.run.dir, self.checkpoint_path.split('/')[-1]))
         # wandb.save(os.path.join(wandb.run.dir, "best.pt"))
         self.score_min = score
 

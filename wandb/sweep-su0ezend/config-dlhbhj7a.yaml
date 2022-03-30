@@ -1,0 +1,16 @@
+wandb_version: 1
+
+adam_beta1:
+  value: 0.7828684816130361
+adam_beta2:
+  value: 0.9796780926502892
+attention_probs_dropout_prob:
+  value: 0.7438308436261933
+hidden_dropout_prob:
+  value: 0.7009899125623862
+hidden_size:
+  value: 40
+lr:
+  value: 0.0061515543855199
+max_seq_length:
+  value: 121

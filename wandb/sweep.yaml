@@ -1,0 +1,30 @@
+program: run_train_sweep.py
+method: bayes
+name: "sweep_SASRec"
+metric:
+  name: "RECALL@10"
+  goal: maximize
+parameters:
+  lr:
+    min: 0.00001
+    max: 0.1
+  adam_beta1:
+    min: 0.7
+    max: 0.99
+  adam_beta2:
+    min: 0.7
+    max: 0.9999
+  attention_probs_dropout_prob:
+    min: 0.2
+    max: 0.75
+  hidden_dropout_prob:
+    min: 0.2
+    max: 0.75
+  hidden_dropout_prob:
+    min: 0.2
+    max: 0.75
+  hidden_size:
+    values: [40, 60, 80, 100, 120]
+  max_seq_length:
+    min: 25
+    max: 125

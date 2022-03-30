@@ -21,10 +21,9 @@ from utils import (
     idx2item_,
 )
 
-
 def main():
     parser = argparse.ArgumentParser()
-
+    
     parser.add_argument("--data_dir", default="../data/train/", type=str)
     parser.add_argument("--output_dir", default="output/", type=str)
     parser.add_argument("--data_name", default="Ml", type=str)
@@ -56,9 +55,9 @@ def main():
     parser.add_argument(
         "--batch_size", type=int, default=256, help="number of batch_size"
     )
-    parser.add_argument("--epochs", type=int, default=200, help="number of epochs")
+    parser.add_argument("--epochs", type=int, default=7, help="number of epochs")
     parser.add_argument("--no_cuda", action="store_true")
-    parser.add_argument("--log_freq", type=int, default=2, help="per 2 epoch print res")
+    parser.add_argument("--log_freq", type=int, default=1, help="per 2 epoch print res")
     parser.add_argument("--seed", default=42, type=int)
 
     parser.add_argument(
@@ -130,7 +129,7 @@ def main():
     # wandb
     wandb.login()
     with wandb.init(project="Movie Recommendation", entity = "recsys16", config=vars(args)):
-
+ 
         model = S3RecModel(args=args)
         print(type(model))
         trainer = FinetuneTrainer(
@@ -149,7 +148,7 @@ def main():
         else:
             print("Not using pretrained model. The Model is same as SASRec")
 
-        early_stopping = EarlyStopping(args.checkpoint_path, patience=10, verbose=True)
+        early_stopping = EarlyStopping(args.checkpoint_path, patience=3, verbose=True, sweep=True)
         for epoch in range(args.epochs):
             trainer.train(epoch)
 
@@ -161,15 +160,15 @@ def main():
                 print("Early stopping")
                 break
 
-        trainer.args.train_matrix = test_rating_matrix
-        print("---------------Change to test_rating_matrix!-------------------")
+        # trainer.args.train_matrix = test_rating_matrix
+        # print("---------------Change to test_rating_matrix!-------------------")
         # load the best model
         # trainer.model.load_state_dict(torch.load(args.checkpoint_path))
         # wandb 폴더에서 모델 불러와 test
-        trainer.model.load_state_dict(torch.load(os.path.join(wandb.run.dir, checkpoint.split('/')[-1])))
-        scores, result_info = trainer.test(0)
-        wandb.log(result_info, step=epoch+1)
-        print(result_info)
+        # trainer.model.load_state_dict(torch.load(os.path.join(wandb.run.dir, checkpoint.split('/')[-1])))
+        # scores, result_info = trainer.test(0)
+        # wandb.log(result_info, step=epoch+1)
+        # print(result_info)
 
 
 if __name__ == "__main__":
