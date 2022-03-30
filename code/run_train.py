@@ -123,7 +123,7 @@ def main():
     )
 
     model = S3RecModel(args=args)
-
+    print(type(model))
     trainer = FinetuneTrainer(
         model, train_dataloader, eval_dataloader, test_dataloader, None, args
     )

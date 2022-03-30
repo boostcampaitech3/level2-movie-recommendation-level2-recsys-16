@@ -13,7 +13,7 @@ def main():
     array, index = pd.factorize(genres_df["genre"])
     genres_df["genre"] = array
     genres_df.groupby("item")["genre"].apply(list).to_json(
-        "data/Ml_item2attributes.json"
+        "../data/Ml_item2attributes.json"
     )
 
     item2idx.to_csv('../data/item2idx.tsv', sep='\t', encoding='utf-8', index=True)
