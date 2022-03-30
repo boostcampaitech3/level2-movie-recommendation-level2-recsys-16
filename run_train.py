@@ -58,7 +58,7 @@ def main():
     )
     parser.add_argument("--epochs", type=int, default=200, help="number of epochs")
     parser.add_argument("--no_cuda", action="store_true")
-    parser.add_argument("--log_freq", type=int, default=1, help="per epoch print res")
+    parser.add_argument("--log_freq", type=int, default=2, help="per 2 epoch print res")
     parser.add_argument("--seed", default=42, type=int)
 
     parser.add_argument(
@@ -130,7 +130,7 @@ def main():
     # wandb
     wandb.login()
     with wandb.init(project="Movie Recommendation", entity = "recsys16", config=vars(args)):
-    
+        args = wandb.config
         model = S3RecModel(args=args)
         print(type(model))
         trainer = FinetuneTrainer(

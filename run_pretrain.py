@@ -1,5 +1,6 @@
 import argparse
 import os
+import wandb
 
 import numpy as np
 import torch
@@ -108,27 +109,30 @@ def main():
     args.attribute_size = attribute_size + 1
 
     args.item2attribute = item2attribute
+    
+    wandb.login()
+    with wandb.init(project="Movie Recommendation", entity = "recsys16", config=vars(args)):
+        args = wandb.config
+        model = S3RecModel(args=args)
+        trainer = PretrainTrainer(model, None, None, None, None, args)
 
-    model = S3RecModel(args=args)
-    trainer = PretrainTrainer(model, None, None, None, None, args)
+        early_stopping = EarlyStopping(args.checkpoint_path, patience=10, verbose=True)
 
-    early_stopping = EarlyStopping(args.checkpoint_path, patience=10, verbose=True)
+        for epoch in range(args.pre_epochs):
 
-    for epoch in range(args.pre_epochs):
+            pretrain_dataset = PretrainDataset(args, user_seq, long_sequence, popular_items)
+            pretrain_sampler = RandomSampler(pretrain_dataset)
+            pretrain_dataloader = DataLoader(
+                pretrain_dataset, sampler=pretrain_sampler, batch_size=args.pre_batch_size
+            )
 
-        pretrain_dataset = PretrainDataset(args, user_seq, long_sequence, popular_items)
-        pretrain_sampler = RandomSampler(pretrain_dataset)
-        pretrain_dataloader = DataLoader(
-            pretrain_dataset, sampler=pretrain_sampler, batch_size=args.pre_batch_size
-        )
+            losses = trainer.pretrain(epoch, pretrain_dataloader)
 
-        losses = trainer.pretrain(epoch, pretrain_dataloader)
-
-        ## comparing `sp_loss_avg``
-        early_stopping(np.array([-losses["sp_loss_avg"]]), trainer.model)
-        if early_stopping.early_stop:
-            print("Early stopping")
-            break
+            ## comparing `sp_loss_avg``
+            early_stopping(np.array([-losses["sp_loss_avg"]]), trainer.model)
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
 
 
 if __name__ == "__main__":

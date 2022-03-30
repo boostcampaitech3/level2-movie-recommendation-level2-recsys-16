@@ -85,7 +85,7 @@ class EarlyStopping:
             print(f"Better performance. Saving model ...")
         torch.save(model.state_dict(), self.checkpoint_path)
         # wandb 폴더에 모델 저장
-        torch.save(model.state_dict(), os.path.join(wandb.run.dir, "best.pt"))
+        torch.save(model.state_dict(), os.path.join(wandb.run.dir, self.checkpoint_path.split('/')[-1]))
         # wandb.save(os.path.join(wandb.run.dir, "best.pt"))
         self.score_min = score
 

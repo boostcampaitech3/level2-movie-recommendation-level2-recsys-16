@@ -66,9 +66,9 @@ class Trainer:
             recall.append(recall_at_k(answers, pred_list, k))
             ndcg.append(ndcg_k(answers, pred_list, k))
         post_fix = {
-            "Epoch": epoch,
+            # "Epoch": epoch,
             "RECALL@5": round(recall[0],4),
-            "NDCG@5": round(ndcg[0],4),
+            # "NDCG@5": round(ndcg[0],4),
             "RECALL@10": round(recall[1],4),
             "NDCG@10": round(ndcg[1],4),
         }
@@ -133,6 +133,7 @@ class PretrainTrainer(Trainer):
 
     def pretrain(self, epoch, pretrain_dataloader):
 
+        wandb.watch(self.model, self.model.criterion, log="all", log_freq=self.args.log_freq)
         desc = (
             f"AAP-{self.args.aap_weight}-"
             f"MIP-{self.args.mip_weight}-"
@@ -194,7 +195,7 @@ class PretrainTrainer(Trainer):
 
         num = len(pretrain_data_iter) * self.args.pre_batch_size
         losses = {
-            "epoch": epoch,
+            # "epoch": epoch,
             "aap_loss_avg": aap_loss_avg / num,
             "mip_loss_avg": mip_loss_avg / num,
             "map_loss_avg": map_loss_avg / num,
@@ -202,6 +203,7 @@ class PretrainTrainer(Trainer):
         }
         print(desc)
         print(str(losses))
+        wandb.log(losses, step=epoch)
         return losses
 
 
@@ -227,7 +229,8 @@ class FinetuneTrainer(Trainer):
     def iteration(self, epoch, dataloader, mode="train"):
 
         # wandb
-        wandb.watch(self.model, self.cross_entropy, log="all", log_freq=self.args.log_freq)
+        if mode != "submission":
+            wandb.watch(self.model, self.cross_entropy, log="all", log_freq=self.args.log_freq)
         # Setting the tqdm progress bar
         
         rec_data_iter = tqdm.tqdm(
@@ -256,9 +259,9 @@ class FinetuneTrainer(Trainer):
                 rec_cur_loss = loss.item()
 
             post_fix = {
-                "epoch": epoch,
+                # "epoch": epoch,
                 "rec_avg_loss": round((rec_avg_loss / len(rec_data_iter)),4),
-                "rec_cur_loss": round(rec_cur_loss,4),
+                # "rec_cur_loss": round(rec_cur_loss,4),
             }
             wandb.log(post_fix, step=epoch)
 
