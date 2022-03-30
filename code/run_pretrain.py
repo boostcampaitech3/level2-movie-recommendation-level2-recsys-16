@@ -63,11 +63,9 @@ def main():
     )
     parser.add_argument("--pre_batch_size", type=int, default=512)
 
-    ##### 민규님이 말씀하신 네 단계 라고 함.
-
     parser.add_argument("--mask_p", type=float, default=0.2, help="mask probability")
     parser.add_argument("--aap_weight", type=float, default=0.2, help="aap loss weight")
-    parser.add_argument("--mip_weight", type=float, default=1.0, help="mip loss weight") # 얘는 negative 수정하고 약간 올라감(진동폭)
+    parser.add_argument("--mip_weight", type=float, default=1.0, help="mip loss weight")
     parser.add_argument("--map_weight", type=float, default=1.0, help="map loss weight")
     parser.add_argument("--sp_weight", type=float, default=0.5, help="sp loss weight")
 

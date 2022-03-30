@@ -1,26 +1,22 @@
 import torch
 import torch.nn as nn
 
+import numpy as np
+
 from modules import Encoder, LayerNorm
 
 
 class S3RecModel(nn.Module):
     def __init__(self, args):
         super(S3RecModel, self).__init__()
-
         self.item_embeddings = nn.Embedding(
             args.item_size, args.hidden_size, padding_idx=0
         )
-
-        # 영화 장르가 18개면 18 이 att_size로 들어가고
-        self.atribute_embeddings = nn.Embedding(
+        self.attribute_embeddings = nn.Embedding(
             args.attribute_size, args.hidden_size, padding_idx=0
         )
-
         self.position_embeddings = nn.Embedding(args.max_seq_length, args.hidden_size)
-
-        self.item_encoder = Encoder(args) # 핵심!!! sasrec 은 decoder 기반
-
+        self.item_encoder = Encoder(args)
         self.LayerNorm = LayerNorm(args.hidden_size, eps=1e-12)
         self.dropout = nn.Dropout(args.hidden_dropout_prob)
         self.args = args
@@ -34,7 +30,7 @@ class S3RecModel(nn.Module):
         self.apply(self.init_weights)
 
     # AAP
-    def associated_attribute_prediction(self, sequence_output, attribute_embedding): # 영화의 장르를 이해시키자
+    def associated_attribute_prediction(self, sequence_output, attribute_embedding):
         """
         :param sequence_output: [B L H]
         :param attribute_embedding: [arribute_num H]
@@ -48,8 +44,8 @@ class S3RecModel(nn.Module):
         score = torch.matmul(attribute_embedding, sequence_output)
         return torch.sigmoid(score.squeeze(-1))  # [B*L tag_num]
 
-    # MIP sample neg items -> 얘가 처음에는 높게 뜨다가 수렴하듯이 떨어지지않고, 진동하듯이 떨어진다고함(준우님, 민규님 실험결과)
-    def masked_item_prediction(self, sequence_output, target_item): # 주변 정보학습하기(영화 순서 이해하기)
+    # MIP sample neg items
+    def masked_item_prediction(self, sequence_output, target_item):
         """
         :param sequence_output: [B L H]
         :param target_item: [B L H]
@@ -63,7 +59,7 @@ class S3RecModel(nn.Module):
         return torch.sigmoid(torch.sum(score, -1))  # [B*L]
 
     # MAP
-    def masked_attribute_prediction(self, sequence_output, attribute_embedding): # 중간에 빈 영화의 장르를 예측하자
+    def masked_attribute_prediction(self, sequence_output, attribute_embedding):
         sequence_output = self.map_norm(sequence_output)  # [B L H]
         sequence_output = sequence_output.view(
             [-1, self.args.hidden_size, 1]
@@ -73,7 +69,7 @@ class S3RecModel(nn.Module):
         return torch.sigmoid(score.squeeze(-1))  # [B*L tag_num]
 
     # SP sample neg segment
-    def segment_prediction(self, context, segment): # 묶음으로 예측해보자(영화 시리즈로 이해하기)
+    def segment_prediction(self, context, segment):
         """
         :param context: [B H]
         :param segment: [B H]
@@ -100,14 +96,14 @@ class S3RecModel(nn.Module):
         return sequence_emb
 
     def pretrain(
-        self,
-        attributes,
-        masked_item_sequence,
-        pos_items,
-        neg_items,
-        masked_segment_sequence,
-        pos_segment,
-        neg_segment,
+            self,
+            attributes,
+            masked_item_sequence,
+            pos_items,
+            neg_items,
+            masked_segment_sequence,
+            pos_segment,
+            neg_segment,
     ):
 
         # Encode masked sequence
@@ -123,7 +119,6 @@ class S3RecModel(nn.Module):
         sequence_output = encoded_layers[-1]
 
         attribute_embeddings = self.attribute_embeddings.weight
-
         # AAP
         aap_score = self.associated_attribute_prediction(
             sequence_output, attribute_embeddings
@@ -133,7 +128,7 @@ class S3RecModel(nn.Module):
         )
         # only compute loss at non-masked position
         aap_mask = (masked_item_sequence != self.args.mask_id).float() * (
-            masked_item_sequence != 0
+                masked_item_sequence != 0
         ).float()
         aap_loss = torch.sum(aap_loss * aap_mask.flatten().unsqueeze(-1))
 
@@ -203,7 +198,7 @@ class S3RecModel(nn.Module):
 
     # Fine tune
     # same as SASRec
-    def finetune(self, input_ids): # 우리가 예측한 sequence_output 튀어나오는 부분
+    def finetune(self, input_ids):
 
         attention_mask = (input_ids > 0).long()
         extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(
@@ -224,8 +219,6 @@ class S3RecModel(nn.Module):
         )  # fp16 compatibility
         extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
 
-        #----------------------- Look-ahead mask 를 구성하는 과정
-
         sequence_emb = self.add_position_embedding(input_ids)
 
         item_encoded_layers = self.item_encoder(
@@ -233,7 +226,7 @@ class S3RecModel(nn.Module):
         )
 
         sequence_output = item_encoded_layers[-1]
-        return sequence_output  #[batchsize, len, hiddne]
+        return sequence_output
 
     def init_weights(self, module):
         """Initialize the weights."""
@@ -246,3 +239,91 @@ class S3RecModel(nn.Module):
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:
             module.bias.data.zero_()
+
+
+class MultiVAE(nn.Module):
+    """
+    Container module for Multi-VAE.
+
+    Multi-VAE : Variational Autoencoder with Multinomial Likelihood
+    See Variational Autoencoders for Collaborative Filtering
+    https://arxiv.org/abs/1802.05814
+    """
+
+    def __init__(self, p_dims=[200, 600, 6807], q_dims=None, dropout=0.5):
+        super(MultiVAE, self).__init__()
+        self.p_dims = p_dims
+        if q_dims:
+            assert q_dims[0] == p_dims[-1], "In and Out dimensions must equal to each other"
+            assert q_dims[-1] == p_dims[0], "Latent dimension for p- and q- network mismatches."
+            self.q_dims = q_dims
+        else:
+            self.q_dims = p_dims[::-1]
+
+        # Last dimension of q- network is for mean and variance
+        temp_q_dims = self.q_dims[:-1] + [self.q_dims[-1] * 2]
+        self.q_layers = nn.ModuleList([nn.Linear(d_in, d_out) for
+                                       d_in, d_out in zip(temp_q_dims[:-1], temp_q_dims[1:])])
+        self.p_layers = nn.ModuleList([nn.Linear(d_in, d_out) for
+                                       d_in, d_out in zip(self.p_dims[:-1], self.p_dims[1:])])
+
+        self.drop = nn.Dropout(dropout)
+        self.init_weights()
+
+    def forward(self, input):
+        mu, logvar = self.encode(input)
+        z = self.reparameterize(mu, logvar)
+        return self.decode(z), mu, logvar
+
+    def encode(self, input):
+        h = F.normalize(input)
+        h = self.drop(h)
+
+        for i, layer in enumerate(self.q_layers):
+            h = layer(h)
+            if i != len(self.q_layers) - 1:
+                h = F.tanh(h)
+            else:
+                mu = h[:, :self.q_dims[-1]]
+                logvar = h[:, self.q_dims[-1]:]
+
+        return mu, logvar
+
+    def reparameterize(self, mu, logvar):
+        if self.training:
+            std = torch.exp(0.5 * logvar)
+            eps = torch.randn_like(std)
+            return eps.mul(std).add_(mu)
+        else:
+            return mu
+
+    def decode(self, z):
+        h = z
+        for i, layer in enumerate(self.p_layers):
+            h = layer(h)
+            if i != len(self.p_layers) - 1:
+                h = F.tanh(h)
+        return h
+
+    def init_weights(self):
+        for layer in self.q_layers:
+            # Xavier Initialization for weights
+            size = layer.weight.size()
+            fan_out = size[0]
+            fan_in = size[1]
+            std = np.sqrt(2.0 / (fan_in + fan_out))
+            layer.weight.data.normal_(0.0, std)
+
+            # Normal Initialization for Biases
+            layer.bias.data.normal_(0.0, 0.001)
+
+        for layer in self.p_layers:
+            # Xavier Initialization for weights
+            size = layer.weight.size()
+            fan_out = size[0]
+            fan_in = size[1]
+            std = np.sqrt(2.0 / (fan_in + fan_out))
+            layer.weight.data.normal_(0.0, std)
+
+            # Normal Initialization for Biases
+            layer.bias.data.normal_(0.0, 0.001)

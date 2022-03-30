@@ -4,8 +4,8 @@ import os
 import torch
 from torch.utils.data import DataLoader, SequentialSampler
 
-from datasets import SASRecDataset
-from models import S3RecModel
+from datasets import SASRecDataset, VAEDataLoader
+from models import S3RecModel, MultiVAE
 from trainers import FinetuneTrainer
 from utils import (
     check_path,
@@ -75,11 +75,7 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
     args.cuda_condition = torch.cuda.is_available() and not args.no_cuda
 
-
-    # 유저, 영화id, timestamp 찍힌 csv
-    args.data_file = args.data_dir + "train_ratings.csv" # 이것을 가지고 submission file 만듬
-
-
+    args.data_file = args.data_dir + "train_ratings.csv"
     item2attribute_file = args.data_dir + args.data_name + "_item2attributes.json"
 
     user_seq, max_item, _, _, submission_rating_matrix = get_user_seqs(args.data_file)
@@ -100,6 +96,7 @@ def main():
     args.train_matrix = submission_rating_matrix
 
     checkpoint = args_str + ".pt"
+    # checkpoint = "VAE.pt"
     args.checkpoint_path = os.path.join(args.output_dir, checkpoint)
 
     submission_dataset = SASRecDataset(args, user_seq, data_type="submission")
@@ -109,6 +106,9 @@ def main():
     )
 
     model = S3RecModel(args=args)
+
+    #     submission_dataloader = VAEDataLoader(args.data_dir)
+    #     model = MultiVAE()
 
     trainer = FinetuneTrainer(model, None, None, None, submission_dataloader, args)
 

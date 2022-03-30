@@ -80,39 +80,25 @@ class Trainer:
         self.model.to(self.device)
 
     def load(self, file_name):
+        # self.model = torch.load(file_name)
         self.model.load_state_dict(torch.load(file_name))
 
     def cross_entropy(self, seq_out, pos_ids, neg_ids):
-        # seq_out 의 shape: [batch seq_len hidden_size]
-        # pos id, neg id : [Batch,Seq Len]
-        # seq_out 은 모델 출력결과(우리가 예측한 것)/
-
+        # [batch seq_len hidden_size]
         pos_emb = self.model.item_embeddings(pos_ids)
         neg_emb = self.model.item_embeddings(neg_ids)
-        # pos_emb 와 neq_emb 는 실제 본, 안본 영화들을 임베딩해서
-        # seq_out 의 shape 와 같다
-
-
-        # view 함수를 써서 shape 를 펼친다: 계산을 쉽게 하기 위해
+        # [batch*seq_len hidden_size]
         pos = pos_emb.view(-1, pos_emb.size(2))
         neg = neg_emb.view(-1, neg_emb.size(2))
         seq_emb = seq_out.view(-1, self.args.hidden_size)  # [batch*seq_len hidden_size]
-        # pos, neg, seq_emb 의 shape :[batch*seq_len hidden_size]
-
-        # 예측한 영화와 실제 정답 영화의 유사도 구하기
         pos_logits = torch.sum(pos * seq_emb, -1)  # [batch*seq_len]
-
-        # 예측한 영화와 오답 영화의 유사도 구하기: 학습시에 - 로 학습되기를 원하는 부분 # [batch*seq_len]
         neg_logits = torch.sum(neg * seq_emb, -1)
-
-        # padding(max len보다 짧으면 0 채워주는 부분)을 무시하고 계산하기 위해 mask 생성
         istarget = (
             (pos_ids > 0).view(pos_ids.size(0) * self.model.args.max_seq_length).float()
         )  # [batch*seq_len]
-
         loss = torch.sum(
-            -torch.log(torch.sigmoid(pos_logits) + 1e-24) * istarget # 1e-24: log(0) 방지용
-            - torch.log(1 - torch.sigmoid(neg_logits) + 1e-24) * istarget # istarget 실제 interaction만 계산, mask 고려
+            -torch.log(torch.sigmoid(pos_logits) + 1e-24) * istarget
+            - torch.log(1 - torch.sigmoid(neg_logits) + 1e-24) * istarget
         ) / torch.sum(istarget)
 
         return loss
@@ -144,9 +130,6 @@ class PretrainTrainer(Trainer):
             args,
         )
 
-    # 상호의존정보 최대화?
-    # x를 아는것이 y에 대한 불확실성을 얼마나 줄이는지
-    # Y를 아는것이 x애 대한 불확실성을 얼마나 줄이는지
     def pretrain(self, epoch, pretrain_dataloader):
 
         desc = (
@@ -164,10 +147,10 @@ class PretrainTrainer(Trainer):
         )
 
         self.model.train()
-        aap_loss_avg = 0.0 # associated attribute prediction 영화의 장르를 이해시키자: 영화 넣고 장르 내뱉게
-        mip_loss_avg = 0.0 # masked item prediction 영화 중간에 있는 것 비워놓고 맞추기: static 맞추기, 학습
-        map_loss_avg = 0.0 # masked attribute prediction 영화 중간에 있는 영화의 장르를 에측하자
-        sp_loss_avg = 0.0 # segment prediction 묶음으로 예측 해보자: 최종값에 중요한 context가 담겨있다 믿음(시청영화들의 맥락은 마지막에!)
+        aap_loss_avg = 0.0
+        mip_loss_avg = 0.0
+        map_loss_avg = 0.0
+        sp_loss_avg = 0.0
 
         for i, batch in pretrain_data_iter:
             # 0. batch_data will be sent into the device(GPU or CPU)
@@ -258,23 +241,10 @@ class FinetuneTrainer(Trainer):
             for i, batch in rec_data_iter:
                 # 0. batch_data will be sent into the device(GPU or CPU)
                 batch = tuple(t.to(self.device) for t in batch)
-
                 _, input_ids, target_pos, target_neg, _ = batch
-                # 배치단위
-                #     # user_id : [Batch]
-                #     # input_ids : [Batch,Seq Len]
-                #     # target_pos : [Batch,Seq Len] 정답이라고 뽑아놓은거
-                #     # target_neg : [Batch,Seq Len] 오답이라고 뽑아놓은거
-                #     # answer = [Batch,1] 같은 하나의 스칼라 혹은 안뽑힐수잇음 []
-
                 # Binary cross_entropy
                 sequence_output = self.model.finetune(input_ids)
-                #     # sequence_output = [Batch, Seq Len, Hidden Size]
-                # Hidden Size? : 각각의 영화 id를 축을 늘려서 embedding 형태로 표현하는 부분
-
                 loss = self.cross_entropy(sequence_output, target_pos, target_neg)
-                # pos_sample 은 잘 맞추게, neg_sample 은 못 맞추게 loop 돌면서 계속 훈련하는 부분
-
                 self.optim.zero_grad()
                 loss.backward()
                 self.optim.step()
