@@ -24,6 +24,7 @@ from utils import (
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--sweep", default="False", type=bool)
 
     parser.add_argument("--data_dir", default="../data/train/", type=str)
     parser.add_argument("--output_dir", default="output/", type=str)
@@ -57,6 +58,7 @@ def main():
         "--batch_size", type=int, default=256, help="number of batch_size"
     )
     parser.add_argument("--epochs", type=int, default=200, help="number of epochs")
+    parser.add_argument("--patience", type=int, default=7, help="patience for early stopping")
     parser.add_argument("--no_cuda", action="store_true")
     parser.add_argument("--log_freq", type=int, default=2, help="per 2 epoch print res")
     parser.add_argument("--seed", default=42, type=int)
@@ -149,14 +151,14 @@ def main():
         else:
             print("Not using pretrained model. The Model is same as SASRec")
 
-        early_stopping = EarlyStopping(args.checkpoint_path, patience=10, verbose=True)
+        early_stopping = EarlyStopping(args.checkpoint_path, patience=args.patience, verbose=True)
         for epoch in range(args.epochs):
             trainer.train(epoch)
 
             scores, _ = trainer.valid(epoch)
 
             # early_stopping(np.array(scores[-1:]), trainer.model)
-            early_stopping(np.array([scores[0]+scores[2]]), trainer.model)
+            early_stopping(np.array([scores[2]]), trainer.model)
             if early_stopping.early_stop:
                 print("Early stopping")
                 break

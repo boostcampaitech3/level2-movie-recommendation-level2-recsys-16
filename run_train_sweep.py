@@ -23,6 +23,7 @@ from utils import (
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--sweep", default="True", type=bool)
     
     parser.add_argument("--data_dir", default="../data/train/", type=str)
     parser.add_argument("--output_dir", default="output/", type=str)
@@ -53,9 +54,9 @@ def main():
     # train args
     parser.add_argument("--lr", type=float, default=0.001, help="learning rate of adam")
     parser.add_argument(
-        "--batch_size", type=int, default=256, help="number of batch_size"
+        "--batch_size", type=int, default=512, help="number of batch_size"
     )
-    parser.add_argument("--epochs", type=int, default=7, help="number of epochs")
+    parser.add_argument("--epochs", type=int, default=10, help="number of epochs")
     parser.add_argument("--no_cuda", action="store_true")
     parser.add_argument("--log_freq", type=int, default=1, help="per 2 epoch print res")
     parser.add_argument("--seed", default=42, type=int)
@@ -148,14 +149,14 @@ def main():
         else:
             print("Not using pretrained model. The Model is same as SASRec")
 
-        early_stopping = EarlyStopping(args.checkpoint_path, patience=3, verbose=True, sweep=True)
+        early_stopping = EarlyStopping(args.checkpoint_path, patience=2, verbose=True, sweep=args.sweep)
         for epoch in range(args.epochs):
             trainer.train(epoch)
 
             scores, _ = trainer.valid(epoch)
 
             # early_stopping(np.array(scores[-1:]), trainer.model)
-            early_stopping(np.array([scores[0]+scores[2]]), trainer.model)
+            early_stopping(np.array([scores[2]]), trainer.model)
             if early_stopping.early_stop:
                 print("Early stopping")
                 break

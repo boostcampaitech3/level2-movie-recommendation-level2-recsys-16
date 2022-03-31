@@ -24,6 +24,7 @@ from utils import (
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--sweep", default="False", type=bool)
 
     parser.add_argument("--data_dir", default="../data/train/", type=str)
     parser.add_argument("--output_dir", default="output/", type=str)
@@ -111,12 +112,12 @@ def main():
     args.item2attribute = item2attribute
     
     wandb.login()
-    with wandb.init(project="Movie Recommendation", entity = "recsys16", config=vars(args)):
+    with wandb.init(project="Movie Recommendation(pre)", entity = "recsys16", config=vars(args)):
         args = wandb.config
         model = S3RecModel(args=args)
         trainer = PretrainTrainer(model, None, None, None, None, args)
 
-        early_stopping = EarlyStopping(args.checkpoint_path, patience=10, verbose=True)
+        early_stopping = EarlyStopping(args.checkpoint_path, patience=5, verbose=True)
 
         for epoch in range(args.pre_epochs):
 

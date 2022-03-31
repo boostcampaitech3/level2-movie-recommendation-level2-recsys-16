@@ -133,7 +133,9 @@ class PretrainTrainer(Trainer):
 
     def pretrain(self, epoch, pretrain_dataloader):
 
-        wandb.watch(self.model, self.model.criterion, log="all", log_freq=self.args.log_freq)
+        # log= "parameters" or "gradients" or "all"
+        if self.args.sweep==False:
+            wandb.watch(self.model, self.model.criterion, log="parameters", log_freq=self.args.log_freq)
         desc = (
             f"AAP-{self.args.aap_weight}-"
             f"MIP-{self.args.mip_weight}-"
@@ -229,8 +231,8 @@ class FinetuneTrainer(Trainer):
     def iteration(self, epoch, dataloader, mode="train"):
 
         # wandb
-        if mode != "submission":
-            wandb.watch(self.model, self.cross_entropy, log="all", log_freq=self.args.log_freq)
+        if mode != "submission" and self.args.sweep==False:
+            wandb.watch(self.model, self.cross_entropy, log="parameters", log_freq=self.args.log_freq)
         # Setting the tqdm progress bar
         
         rec_data_iter = tqdm.tqdm(
