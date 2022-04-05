@@ -13,7 +13,7 @@ class S3RecModel(nn.Module):
         )
 
         # 영화 장르가 18개면 18 이 att_size로 들어가고
-        self.atribute_embeddings = nn.Embedding(
+        self.attribute_embeddings = nn.Embedding(
             args.attribute_size, args.hidden_size, padding_idx=0
         )
 
@@ -246,3 +246,4 @@ class S3RecModel(nn.Module):
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:
             module.bias.data.zero_()
+

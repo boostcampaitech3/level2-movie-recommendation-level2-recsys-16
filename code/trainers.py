@@ -3,8 +3,9 @@ import torch
 import torch.nn as nn
 import tqdm
 from torch.optim import Adam
-
 from utils import ndcg_k, recall_at_k
+
+
 
 
 class Trainer:
@@ -59,7 +60,7 @@ class Trainer:
     def iteration(self, epoch, dataloader, mode="train"):
         raise NotImplementedError
 
-    def get_full_sort_score(self, epoch, answers, pred_list):
+    def get_full_sort_score(self, epoch, answers, pred_list): # wandb 추가한 부분
         recall, ndcg = [], []
         for k in [5, 10]:
             recall.append(recall_at_k(answers, pred_list, k))
@@ -71,6 +72,7 @@ class Trainer:
             "RECALL@10": "{:.4f}".format(recall[1]),
             "NDCG@10": "{:.4f}".format(ndcg[1]),
         }
+
         print(post_fix)
 
         return [recall[0], ndcg[0], recall[1], ndcg[1]], str(post_fix)
@@ -216,6 +218,7 @@ class PretrainTrainer(Trainer):
             "map_loss_avg": map_loss_avg / num,
             "sp_loss_avg": sp_loss_avg / num,
         }
+
         print(desc)
         print(str(losses))
         return losses
@@ -250,12 +253,18 @@ class FinetuneTrainer(Trainer):
             total=len(dataloader),
             bar_format="{l_bar}{r_bar}",
         )
-        if mode == "train":
+
+
+
+        if mode == "train": # wandb 추가한 부분
             self.model.train()
+
+
             rec_avg_loss = 0.0
             rec_cur_loss = 0.0
 
             for i, batch in rec_data_iter:
+
                 # 0. batch_data will be sent into the device(GPU or CPU)
                 batch = tuple(t.to(self.device) for t in batch)
 
@@ -287,6 +296,8 @@ class FinetuneTrainer(Trainer):
                 "rec_avg_loss": "{:.4f}".format(rec_avg_loss / len(rec_data_iter)),
                 "rec_cur_loss": "{:.4f}".format(rec_cur_loss),
             }
+
+
 
             if (epoch + 1) % self.args.log_freq == 0:
                 print(str(post_fix))
@@ -333,3 +344,6 @@ class FinetuneTrainer(Trainer):
                 return pred_list
             else:
                 return self.get_full_sort_score(epoch, answer_list, pred_list)
+
+
+

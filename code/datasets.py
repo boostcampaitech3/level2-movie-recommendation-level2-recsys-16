@@ -125,7 +125,7 @@ class PretrainDataset(Dataset):
             torch.tensor(pos_segment, dtype=torch.long),
             torch.tensor(neg_segment, dtype=torch.long),
         )
-        print('heall')
+
         return cur_tensors
 
 # user_seq : 가장 중요한 2차원 matrix 로 된 각 유저가 어떤 영화를 봤는지를 표현해주는
@@ -138,7 +138,7 @@ class SASRecDataset(Dataset):
         self.user_seq = user_seq
         self.test_neg_items = test_neg_items # 안쓰이는 ->sample을 따로 지정해서 사용할 때 쓰던 변수
         self.data_type = data_type
-        self.max_len = args.max_seq_length
+
 
     def __getitem__(self, index):
 
@@ -183,7 +183,7 @@ class SASRecDataset(Dataset):
             input_ids = items[:-1]
             target_pos = items[1:]
             answer = [items[-1]]
-        else:
+        else: # submission
             input_ids = items[:]
             target_pos = items[:]  # will not be used
             answer = []
@@ -251,3 +251,5 @@ class SASRecDataset(Dataset):
 
     def __len__(self):
         return len(self.user_seq)
+
+

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 from scipy.sparse import csr_matrix
-
+from sklearn.preprocessing import MultiLabelBinarizer
 
 def set_seed(seed):
     random.seed(seed)
@@ -158,7 +158,7 @@ def generate_rating_matrix_submission(user_seq, num_users, num_items):
 def generate_submission_file(data_file, preds):
 
     rating_df = pd.read_csv(data_file)
-    idx2item = pd.read_csv('/opt/ml/input/data/item2idx.tsv', sep='\t', index_col=1, names=['item'])
+    idx2item = pd.read_csv('/tmp/pycharm_project_850/data/item2idx.tsv', sep='\t', index_col=1, names=['item'])
     users = rating_df["user"].unique()
 
     result = []
@@ -175,7 +175,7 @@ def generate_submission_file(data_file, preds):
 def get_user_seqs(data_file):
     rating_df = pd.read_csv(data_file)
 
-    item2idx = pd.read_csv('/opt/ml/input/data/item2idx.tsv', sep='\t', index_col=0, names=['item_id'])
+    item2idx = pd.read_csv('/tmp/pycharm_project_850/data/item2idx.tsv', sep='\t', index_col=0, names=['item_id'])
     rating_df['item'] = rating_df['item'].map(lambda x: item2idx['item_id'][x])
 
     lines = rating_df.groupby("user")["item"].apply(list)
@@ -208,7 +208,7 @@ def get_user_seqs(data_file):
 def get_user_seqs_long(data_file):
     rating_df = pd.read_csv(data_file)
 
-    item2idx = pd.read_csv('/opt/ml/input/data/item2idx.tsv', sep='\t', index_col=0, names=['item_id'])
+    item2idx = pd.read_csv('/tmp/pycharm_project_850/data/item2idx.tsv', sep='\t', index_col=0, names=['item_id'])
     rating_df['item'] = rating_df['item'].map(lambda x: item2idx['item_id'][x])
 
     lines = rating_df.groupby("user")["item"].apply(list)
@@ -359,3 +359,44 @@ def idcg_k(k):
         return 1.0
     else:
         return res
+
+
+def get_FM_data(ratings, genres, full_item):
+
+    ratings_df = pd.read_csv(ratings)
+    interaction = ratings_df.drop(["time"], axis=1) # (5154470 , 2) # user_id, item_id 로만 이루어진 df
+    interaction.columns = ['user_id', 'item_id']
+    interaction['rating'] = 1 # 모든 상호작용 아이템에 대해 1 을 부여해놓기
+
+    user_ids = ratings_df.drop(['item', "time"], axis=1) # user_id 만
+    user_ids.rename(columns={'user': 'user_id'}, inplace=True)
+
+    # user-feature 는 따로 없고, item-feature 를 만들자
+    # 영화 장르, 감독, 작가 embedding 해보기 --> 장르만 해보자
+    full_items = pd.read_csv(full_item)
+
+    print(full_items.head())
+
+    mlb = MultiLabelBinarizer()
+    labels = mlb.fit_transform(full_items['genres'].values)
+    genre_embedding = pd.DataFrame(columns=mlb.classes_, data=labels)# 6408, 18
+
+    # 아이템아이디와 장르 임베딩 연결 # 6408, 19
+    genre_embedding.insert(0, 'item', full_items['item'])
+    item_feature = genre_embedding  # 유저피처에 일단 장르임베딩만
+    item_feature.rename(columns={'item': 'item_id'}, inplace=True)
+
+    # 감독 임베딩
+    # labels = mlb.fit_transform(full_item['directors'].values)
+    # directors_embedding = pd.DataFrame(columns=mlb.classes, data=labels)
+    # directors_embedding.insert(0, 'item', full_item['item'])
+
+    # 작가 임베딩
+    # labels = mlb.fit_transform(full_item['writers'].values)
+    # writers_embedding = pd.DataFrame(columns=mlb.classes, data=labels)
+    # writers_embedding.insert(0, 'item', full_item['item'])
+
+
+    genres_df = pd.read_csv(genres, sep='\t')
+
+    return interaction, item_feature, user_ids
