@@ -87,7 +87,7 @@ class EarlyStopping:
         if not self.sweep:
             torch.save(model.state_dict(), self.checkpoint_path)
             # wandb 폴더에 모델 저장
-            torch.save(model.state_dict(), os.path.join(wandb.run.dir, self.checkpoint_path.split('/')[-1]))
+            # torch.save(model.state_dict(), os.path.join(wandb.run.dir, self.checkpoint_path.split('/')[-1]))
         # wandb.save(os.path.join(wandb.run.dir, "best.pt"))
         self.score_min = score
 
@@ -174,7 +174,7 @@ def generate_submission_file(data_file, preds, idx2item_):
     )
 
 
-def get_user_seqs(data_file, item2idx_):
+def get_user_seqs(data_file, item2idx_, random_sort=0):
     rating_df = pd.read_csv(data_file)
     rating_df['item'] = rating_df['item'].map(lambda x: item2idx_[x])
     lines = rating_df.groupby("user")["item"].apply(list)
@@ -182,6 +182,8 @@ def get_user_seqs(data_file, item2idx_):
     item_set = set()
     for line in lines:
         items = line
+        if random.random() < random_sort:
+            random.shuffle(items)
         user_seq.append(items)
         item_set = item_set | set(items)
         
@@ -204,7 +206,7 @@ def get_user_seqs(data_file, item2idx_):
     )
 
 
-def get_user_seqs_long(data_file, item2idx_):
+def get_user_seqs_long(data_file, item2idx_, random_sort=0):
     rating_df = pd.read_csv(data_file)
     rating_df['item'] = rating_df['item'].map(lambda x: item2idx_[x])
     lines = rating_df.groupby("user")["item"].apply(list)
@@ -213,6 +215,8 @@ def get_user_seqs_long(data_file, item2idx_):
     item_set = set()
     for line in lines:
         items = line
+        if random.random() < random_sort:
+            random.shuffle(items)
         long_sequence.extend(items)
         user_seq.append(items)
         item_set = item_set | set(items)
@@ -355,20 +359,16 @@ def idcg_k(k):
     else:
         return res
 
-def get_popular_items(data_file, item2idx_):
+def get_popular_items(data_file, item2idx_, p):
     rating_df = pd.read_csv(data_file)
     rating_df['item'] = rating_df['item'].map(lambda x: item2idx_[x])
     popular_items = list(rating_df["item"].value_counts().index)
-    return popular_items
+    return popular_items[:int(len(popular_items)*p)+1]
+    # return popular_items[-int(len(popular_items)*p)-1:]
 
 def neg_sample_from_popular_items(item_set, popular_items, max_len):
-    if random.random() < 0.75:
-        n = max(len(item_set), max_len)
-        popular_items_ = popular_items[:n*3]
-        sample = random.choice(popular_items_)
-        while sample in item_set:
-            sample = random.choice(popular_items_)
-    else:
+    sample = random.choice(popular_items)
+    while sample in item_set:
         sample = random.choice(popular_items)
     return sample
 

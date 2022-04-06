@@ -84,7 +84,7 @@ class Trainer:
         # self.model = torch.load(file_name)
         self.model.load_state_dict(torch.load(file_name))
 
-    def cross_entropy(self, seq_out, pos_ids, neg_ids):
+    def cross_entropy(self, seq_out, pos_ids, neg_ids, loss_fn="cn"):
         # [batch seq_len hidden_size]
         pos_emb = self.model.item_embeddings(pos_ids)
         neg_emb = self.model.item_embeddings(neg_ids)
@@ -97,10 +97,14 @@ class Trainer:
         istarget = (
             (pos_ids > 0).view(pos_ids.size(0) * self.model.args.max_seq_length).float()
         )  # [batch*seq_len]
-        loss = torch.sum(
-            -torch.log(torch.sigmoid(pos_logits) + 1e-24) * istarget
-            - torch.log(1 - torch.sigmoid(neg_logits) + 1e-24) * istarget
-        ) / torch.sum(istarget)
+        if loss_fn=="cn":
+            loss = torch.sum(
+                -torch.log(torch.sigmoid(pos_logits) + 1e-24) * istarget
+                - torch.log(1 - torch.sigmoid(neg_logits) + 1e-24) * istarget
+            ) / torch.sum(istarget)
+        elif loss_fn=="bpr":
+            loss = - torch.sum(torch.log(1e-14 + torch.sigmoid(pos_logits - neg_logits)) * istarget) \
+           / torch.sum(istarget)
 
         return loss
 
@@ -180,9 +184,9 @@ class PretrainTrainer(Trainer):
             )
 
             joint_loss = (
-                self.args.aap_weight * aap_loss
+                # self.args.aap_weight * aap_loss
                 + self.args.mip_weight * mip_loss
-                + self.args.map_weight * map_loss
+                # + self.args.map_weight * map_loss
                 + self.args.sp_weight * sp_loss
             )
 
@@ -190,17 +194,17 @@ class PretrainTrainer(Trainer):
             joint_loss.backward()
             self.optim.step()
 
-            aap_loss_avg += aap_loss.item()
+            # aap_loss_avg += aap_loss.item()
             mip_loss_avg += mip_loss.item()
-            map_loss_avg += map_loss.item()
+            # map_loss_avg += map_loss.item()
             sp_loss_avg += sp_loss.item()
 
         num = len(pretrain_data_iter) * self.args.pre_batch_size
         losses = {
             # "epoch": epoch,
-            "aap_loss_avg": aap_loss_avg / num,
+            # "aap_loss_avg": aap_loss_avg / num,
             "mip_loss_avg": mip_loss_avg / num,
-            "map_loss_avg": map_loss_avg / num,
+            # "map_loss_avg": map_loss_avg / num,
             "sp_loss_avg": sp_loss_avg / num,
         }
         print(desc)
@@ -252,7 +256,7 @@ class FinetuneTrainer(Trainer):
                 _, input_ids, target_pos, target_neg, _ = batch
                 # Binary cross_entropy
                 sequence_output = self.model.finetune(input_ids)
-                loss = self.cross_entropy(sequence_output, target_pos, target_neg)
+                loss = self.cross_entropy(sequence_output, target_pos, target_neg, loss_fn=self.args.loss_fn)
                 self.optim.zero_grad()
                 loss.backward()
                 self.optim.step()
@@ -314,3 +318,56 @@ class FinetuneTrainer(Trainer):
                 score, metrics = self.get_full_sort_score(epoch, answer_list, pred_list)
                 wandb.log(metrics, step=epoch)
                 return score, metrics
+
+class BertTrainer(Trainer):
+    def __init__(
+        self,
+        model,
+        train_dataloader,
+        eval_dataloader,
+        test_dataloader,
+        submission_dataloader,
+        args,
+    ):
+        super(PretrainTrainer, self).__init__(
+            model,
+            train_dataloader,
+            eval_dataloader,
+            test_dataloader,
+            submission_dataloader,
+            args,
+        )
+        
+        self.criterion = nn.CrossEntropyLoss(ignore_index=0)
+
+    def pretrain(self, epoch, pretrain_dataloader):
+
+        # log= "parameters" or "gradients" or "all"
+        if self.args.sweep==False:
+            wandb.watch(self.model, self.model.criterion, log="parameters", log_freq=self.args.log_freq)
+
+        pretrain_data_iter = tqdm.tqdm(
+            enumerate(pretrain_dataloader),
+            desc=f"{self.args.model_name}-{self.args.data_name} Epoch:{epoch}",
+            total=len(pretrain_dataloader),
+            bar_format="{l_bar}{r_bar}",
+        )
+
+        self.model.train()
+    
+        for step, (log_seqs, labels) in enumerate(tbar):
+        # logits = (batchsize * max_len * (num_item +1) )
+            logits = model(log_seqs)
+
+            # size matching
+            logits = logits.view(-1, logits.size(-1))
+            labels = labels.view(-1).to(device)
+
+            self.optimizer.zero_grad()
+            loss = self.criterion(logits, labels)
+            loss.backward()
+            self.optimizer.step()
+
+            tbar.set_description(f'Epoch: {epoch:3d}| Step: {step:3d}| Train loss: {loss:.5f}')
+        wandb.log(losses, step=epoch)
+        return losses

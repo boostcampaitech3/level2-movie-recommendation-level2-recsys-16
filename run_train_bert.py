@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from datasets import SASRecDataset
 from models import S3RecModel
 from trainers import FinetuneTrainer
+from bert import *
 from utils import (
     EarlyStopping,
     check_path,
@@ -26,10 +27,11 @@ def main():
     parser.add_argument("--sweep", default="False", type=bool)
     parser.add_argument("--random_sort", default=0.0, type=float)
     parser.add_argument("--neg_from_pop", default=0.0, type=float)
-    parser.add_argument("--loss_fn", default="cn", type=str)
+    parser.add_argument("--mask_p", default=0.2, type=float)
+    parser.add_argument("--mode", default="train", type=str)
 
     parser.add_argument("--data_dir", default="../data/train/", type=str)
-    parser.add_argument("--output_dir", default="output/", type=str)
+    parser.add_argument("--output_dir", default="output/bert", type=str)
     parser.add_argument("--data_name", default="Ml", type=str)
 
     # model args
@@ -112,67 +114,72 @@ def main():
     checkpoint = args_str + ".pt"
     args.checkpoint_path = os.path.join(args.output_dir, checkpoint)
 
-    train_dataset = SASRecDataset(args, user_seq, data_type="train")
+    train_dataset = BertDataset(args, user_seq, data_type="train")
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(
         train_dataset, sampler=train_sampler, batch_size=args.batch_size
     )
+    
+    finetune_dataset = BertDataset(args, user_seq, data_type="finetune")
+    finetune_sampler = RandomSampler(finetune_dataset)
+    finetune_dataloader = DataLoader(
+        finetune_dataset, sampler=finetune_sampler, batch_size=args.batch_size
+    )
 
-    eval_dataset = SASRecDataset(args, user_seq, data_type="valid")
+    eval_dataset = BertDataset(args, user_seq, data_type="valid")
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(
         eval_dataset, sampler=eval_sampler, batch_size=args.batch_size
     )
 
-    test_dataset = SASRecDataset(args, user_seq, data_type="test")
+    test_dataset = BertDataset(args, user_seq, data_type="test")
     test_sampler = SequentialSampler(test_dataset)
     test_dataloader = DataLoader(
         test_dataset, sampler=test_sampler, batch_size=args.batch_size
     )
 
     # wandb
-    wandb.login()
-    with wandb.init(project="Movie Recommendation", entity = "recsys16", config=vars(args)):
+    # wandb.login()
+    # with wandb.init(project="Movie Recommendation", entity = "recsys16", config=vars(args)):
 
-        model = S3RecModel(args=args)
-        print(type(model))
-        trainer = FinetuneTrainer(
-            model, train_dataloader, eval_dataloader, test_dataloader, None, args
-        )
+    model = BERTModel(args=args)
+    print(type(model))
+    trainer = BertTrainer(
+        model, train_dataloader, finetune_dataloader, eval_dataloader, test_dataloader, None, args
+    )
 
-        print(args.using_pretrain)
-        if args.using_pretrain:
-            pretrained_path = os.path.join(args.output_dir, "Pretrain.pt")
-            try:
-                trainer.load(pretrained_path)
-                print(f"Load Checkpoint From {pretrained_path}!")
+    print(args.using_pretrain)
+    if args.using_pretrain:
+        pretrained_path = os.path.join(args.output_dir, "Pretrain.pt")
+        try:
+            trainer.load(pretrained_path)
+            print(f"Load Checkpoint From {pretrained_path}!")
 
-            except FileNotFoundError:
-                print(f"{pretrained_path} Not Found! The Model is same as SASRec")
-        else:
-            print("Not using pretrained model. The Model is same as SASRec")
+        except FileNotFoundError:
+            print(f"{pretrained_path} Not Found!")
+    else:
+        print("Not using pretrained model.")
 
-        early_stopping = EarlyStopping(args.checkpoint_path, patience=args.patience, verbose=True)
-        for epoch in range(args.epochs):
-            trainer.train(epoch)
+    early_stopping = EarlyStopping(args.checkpoint_path, patience=args.patience, verbose=True)
+    for epoch in range(args.epochs):
+        trainer.train(epoch)
 
-            scores, _ = trainer.valid(epoch)
+        scores, _ = trainer.valid(epoch)
 
-            # early_stopping(np.array(scores[-1:]), trainer.model)
-            early_stopping(np.array([scores[2]]), trainer.model)
-            if early_stopping.early_stop:
-                print("Early stopping")
-                break
+        early_stopping(np.array([scores[2]]), trainer.model)
+        if early_stopping.early_stop:
+            print("Early stopping")
+            break
 
-        trainer.args.train_matrix = test_rating_matrix
-        print("---------------Change to test_rating_matrix!-------------------")
-        # load the best model
-        # trainer.model.load_state_dict(torch.load(args.checkpoint_path))
-        # wandb 폴더에서 모델 불러와 test
-        trainer.model.load_state_dict(torch.load(os.path.join(wandb.run.dir, checkpoint.split('/')[-1])))
-        scores, result_info = trainer.test(0)
-        wandb.log(result_info, step=epoch+1)
-        print(result_info)
+    trainer.args.train_matrix = test_rating_matrix
+    print("---------------Change to test_rating_matrix!-------------------")
+    # load the best model
+    trainer.model.load_state_dict(torch.load(args.checkpoint_path))
+    # wandb 폴더에서 모델 불러와 test
+    # trainer.model.load_state_dict(torch.load(os.path.join(wandb.run.dir, checkpoint.split('/')[-1])))
+    scores, result_info = trainer.test(0)
+        # wandb.log(result_info, step=epoch+1)
+    print(result_info)
 
 
 if __name__ == "__main__":

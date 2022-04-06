@@ -24,6 +24,7 @@ from utils import (
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep", default="True", type=bool)
+    parser.add_argument("--loss_fn", default="cn", type=str)
     
     parser.add_argument("--data_dir", default="../data/train/", type=str)
     parser.add_argument("--output_dir", default="output/", type=str)
@@ -54,7 +55,7 @@ def main():
     # train args
     parser.add_argument("--lr", type=float, default=0.001, help="learning rate of adam")
     parser.add_argument(
-        "--batch_size", type=int, default=512, help="number of batch_size"
+        "--batch_size", type=int, default=128, help="number of batch_size"
     )
     parser.add_argument("--epochs", type=int, default=10, help="number of epochs")
     parser.add_argument("--no_cuda", action="store_true")
@@ -149,7 +150,7 @@ def main():
         else:
             print("Not using pretrained model. The Model is same as SASRec")
 
-        early_stopping = EarlyStopping(args.checkpoint_path, patience=2, verbose=True, sweep=args.sweep)
+        early_stopping = EarlyStopping(args.checkpoint_path, patience=3, verbose=True, sweep=args.sweep)
         for epoch in range(args.epochs):
             trainer.train(epoch)
 

@@ -5,7 +5,6 @@ import numpy as np
 
 from modules import Encoder, LayerNorm
 
-
 class S3RecModel(nn.Module):
     def __init__(self, args):
         super(S3RecModel, self).__init__()
@@ -107,6 +106,7 @@ class S3RecModel(nn.Module):
     ):
 
         # Encode masked sequence
+        aap_loss, mip_loss, map_loss, sp_loss =0,0,0,0
 
         sequence_emb = self.add_position_embedding(masked_item_sequence)
         sequence_mask = (masked_item_sequence == 0).float() * -1e8
@@ -120,17 +120,17 @@ class S3RecModel(nn.Module):
 
         attribute_embeddings = self.attribute_embeddings.weight
         # AAP
-        aap_score = self.associated_attribute_prediction(
-            sequence_output, attribute_embeddings
-        )
-        aap_loss = self.criterion(
-            aap_score, attributes.view(-1, self.args.attribute_size).float()
-        )
-        # only compute loss at non-masked position
-        aap_mask = (masked_item_sequence != self.args.mask_id).float() * (
-            masked_item_sequence != 0
-        ).float()
-        aap_loss = torch.sum(aap_loss * aap_mask.flatten().unsqueeze(-1))
+        # aap_score = self.associated_attribute_prediction(
+        #     sequence_output, attribute_embeddings
+        # )
+        # aap_loss = self.criterion(
+        #     aap_score, attributes.view(-1, self.args.attribute_size).float()
+        # )
+        # # only compute loss at non-masked position
+        # aap_mask = (masked_item_sequence != self.args.mask_id).float() * (
+        #     masked_item_sequence != 0
+        # ).float()
+        # aap_loss = torch.sum(aap_loss * aap_mask.flatten().unsqueeze(-1))
 
         # MIP
         pos_item_embs = self.item_embeddings(pos_items)
@@ -145,14 +145,14 @@ class S3RecModel(nn.Module):
         mip_loss = torch.sum(mip_loss * mip_mask.flatten())
 
         # MAP
-        map_score = self.masked_attribute_prediction(
-            sequence_output, attribute_embeddings
-        )
-        map_loss = self.criterion(
-            map_score, attributes.view(-1, self.args.attribute_size).float()
-        )
-        map_mask = (masked_item_sequence == self.args.mask_id).float()
-        map_loss = torch.sum(map_loss * map_mask.flatten().unsqueeze(-1))
+        # map_score = self.masked_attribute_prediction(
+        #     sequence_output, attribute_embeddings
+        # )
+        # map_loss = self.criterion(
+        #     map_score, attributes.view(-1, self.args.attribute_size).float()
+        # )
+        # map_mask = (masked_item_sequence == self.args.mask_id).float()
+        # map_loss = torch.sum(map_loss * map_mask.flatten().unsqueeze(-1))
 
         # SP
         # segment context
@@ -326,3 +326,4 @@ class MultiVAE(nn.Module):
 
             # Normal Initialization for Biases
             layer.bias.data.normal_(0.0, 0.001)
+            

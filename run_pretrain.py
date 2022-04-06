@@ -25,6 +25,8 @@ from utils import (
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep", default="False", type=bool)
+    parser.add_argument("--neg_from_pop", default=0.0, type=float)
+    parser.add_argument("--loss_fn", default="cn", type=str)
 
     parser.add_argument("--data_dir", default="../data/train/", type=str)
     parser.add_argument("--output_dir", default="output/", type=str)
@@ -69,9 +71,9 @@ def main():
     )
     parser.add_argument("--pre_batch_size", type=int, default=512)
 
-    parser.add_argument("--mask_p", type=float, default=0.2, help="mask probability")
+    parser.add_argument("--mask_p", type=float, default=0.25, help="mask probability")
     parser.add_argument("--aap_weight", type=float, default=0.2, help="aap loss weight")
-    parser.add_argument("--mip_weight", type=float, default=1.0, help="mip loss weight")
+    parser.add_argument("--mip_weight", type=float, default=1.5, help="mip loss weight")
     parser.add_argument("--map_weight", type=float, default=1.0, help="map loss weight")
     parser.add_argument("--sp_weight", type=float, default=0.5, help="sp loss weight")
 
@@ -102,7 +104,7 @@ def main():
     # concat all user_seq get a long sequence, from which sample neg segment for SP
 
     user_seq, max_item, long_sequence = get_user_seqs_long(args.data_file, item2idx_)
-    popular_items = get_popular_items(args.data_file, item2idx_)
+    
     item2attribute, attribute_size = get_item2attribute_json(item2attribute_file)
 
     args.item_size = max_item + 2
@@ -117,11 +119,11 @@ def main():
         model = S3RecModel(args=args)
         trainer = PretrainTrainer(model, None, None, None, None, args)
 
-        early_stopping = EarlyStopping(args.checkpoint_path, patience=5, verbose=True)
+        early_stopping = EarlyStopping(args.checkpoint_path, patience=7, verbose=True)
 
         for epoch in range(args.pre_epochs):
 
-            pretrain_dataset = PretrainDataset(args, user_seq, long_sequence, popular_items)
+            pretrain_dataset = PretrainDataset(args, user_seq, long_sequence)
             pretrain_sampler = RandomSampler(pretrain_dataset)
             pretrain_dataloader = DataLoader(
                 pretrain_dataset, sampler=pretrain_sampler, batch_size=args.pre_batch_size

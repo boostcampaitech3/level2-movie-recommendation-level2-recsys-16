@@ -3,19 +3,20 @@ import random
 import torch
 from torch.utils.data import Dataset
 
-from utils import neg_sample, get_popular_items, neg_sample_from_popular_items
+from utils import neg_sample, get_popular_items, neg_sample_from_popular_items, item2idx_
 import os
 
 
 class PretrainDataset(Dataset):
-    def __init__(self, args, user_seq, long_sequence, popular_items):
+    def __init__(self, args, user_seq, long_sequence):
         self.args = args
         self.user_seq = user_seq
         self.long_sequence = long_sequence
         self.max_len = args.max_seq_length
         self.part_sequence = []
         self.split_sequence()
-        self.popular_items = popular_items
+        if args.neg_from_pop:
+            self.popular_items = get_popular_items(args.data_file, item2idx_, args.neg_from_pop)
         
     def split_sequence(self):
         for seq in self.user_seq:
@@ -37,17 +38,28 @@ class PretrainDataset(Dataset):
         for item in sequence[:-1]:
             prob = random.random()
             if prob < self.args.mask_p:
-                masked_item_sequence.append(self.args.mask_id)
-                neg_items.append(neg_sample(item_set, self.args.item_size))
-                # neg_items.append(neg_sample_from_popular_items(item_set, self.popular_items, self.max_len))
+                prob /= self.args.mask_p
+                if prob < 0.8:
+                    masked_item_sequence.append(self.args.mask_id)
+                elif prob < 0.9:
+                    masked_item_sequence.append(random.randint(1, self.args.item_size-1))  # item random sampling
+                else:
+                    masked_item_sequence.append(item)
+                if self.args.neg_from_pop:
+                    neg_items.append(neg_sample_from_popular_items(item_set, self.popular_items, self.max_len))
+                else:
+                    neg_items.append(neg_sample(item_set, self.args.item_size))
+                
             else:
                 masked_item_sequence.append(item)
                 neg_items.append(item)
 
         # add mask at the last position
         masked_item_sequence.append(self.args.mask_id)
-        neg_items.append(neg_sample(item_set, self.args.item_size))
-        # neg_items.append(neg_sample_from_popular_items(item_set, self.popular_items, self.max_len))
+        if self.args.neg_from_pop:
+            neg_items.append(neg_sample_from_popular_items(item_set, self.popular_items, self.max_len))
+        else:
+            neg_items.append(neg_sample(item_set, self.args.item_size))
 
         # Segment Prediction
         if len(sequence) < 2:
@@ -133,13 +145,14 @@ class PretrainDataset(Dataset):
 
 
 class SASRecDataset(Dataset):
-    def __init__(self, args, user_seq, popular_items, test_neg_items=None, data_type="train"):
+    def __init__(self, args, user_seq, test_neg_items=None, data_type="train"):
         self.args = args
         self.user_seq = user_seq
         self.test_neg_items = test_neg_items
         self.data_type = data_type
         self.max_len = args.max_seq_length
-        self.popular_items = popular_items
+        if args.neg_from_pop:
+            self.popular_items = get_popular_items(args.data_file, item2idx_, args.neg_from_pop)
 
     def __getitem__(self, index):
 
@@ -183,8 +196,10 @@ class SASRecDataset(Dataset):
         target_neg = []
         seq_set = set(items)
         for _ in input_ids:
-            target_neg.append(neg_sample(seq_set, self.args.item_size))
-            # target_neg.append(neg_sample_from_popular_items(seq_set, self.popular_items, self.max_len))
+            if self.args.neg_from_pop:
+                target_neg.append(neg_sample_from_popular_items(seq_set, self.popular_items, self.max_len))
+            else:
+                target_neg.append(neg_sample(seq_set, self.args.item_size))
 
         pad_len = self.max_len - len(input_ids)
         input_ids = [0] * pad_len + input_ids
@@ -284,3 +299,4 @@ class VAEDataLoader():
         data_te = sparse.csr_matrix((np.ones_like(rows_te),
                                     (rows_te, cols_te)), dtype='float64', shape=(end_idx - start_idx + 1, self.n_items))
         return data_tr, data_te
+    

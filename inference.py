@@ -22,6 +22,7 @@ from utils import (
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--neg_from_pop", default=0.0, type=float)
 
     parser.add_argument("--data_dir", default="../data/train/", type=str)
     parser.add_argument("--output_dir", default="output/", type=str)
@@ -83,8 +84,7 @@ def main():
     item2attribute_file = args.data_dir + args.data_name + "_item2attributes.json"
 
     user_seq, max_item, _, _, submission_rating_matrix = get_user_seqs(args.data_file, item2idx_)
-    popular_items = get_popular_items(args.data_file, item2idx_)
-
+  
     item2attribute, attribute_size = get_item2attribute_json(item2attribute_file)
 
     args.item_size = max_item + 2
@@ -104,7 +104,7 @@ def main():
     # checkpoint = "VAE.pt"
     args.checkpoint_path = os.path.join(args.output_dir, checkpoint)
 
-    submission_dataset = SASRecDataset(args, user_seq, popular_items, data_type="submission")
+    submission_dataset = SASRecDataset(args, user_seq, data_type="submission")
     submission_sampler = SequentialSampler(submission_dataset)
     submission_dataloader = DataLoader(
         submission_dataset, sampler=submission_sampler, batch_size=args.batch_size
