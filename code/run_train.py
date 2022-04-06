@@ -1,5 +1,6 @@
 import argparse
 import os
+import wandb
 
 import numpy as np
 import pandas as pd
@@ -188,8 +189,8 @@ def main():
     #------------------------------------------------------ RankFM
 
     elif args.model == 'FM':
-        device = torch.device("cuda:{}".format(0) if torch.cuda.is_available() else "cpu")
-        print(device)
+
+
 
         interaction, item_feature, user_feature = get_FM_data(args.data_file, args.data_genres, args.full_items) # FM 학습에서 사용할 데이터 세팅
 
@@ -197,71 +198,103 @@ def main():
         # factors = latent factor rank, [user, item, user-feature, item-feature]
 
         model = RankFM(factors=15, loss='warp', max_samples=20, alpha=0.01, sigma=0.1, learning_rate=args.lr,
-                       learning_schedule='invscaling') # 상속받은 모델, invscaling: 학습률을 점점 줄여나감
-        print(type(model))
+                       learning_schedule='invscaling')  # 상속받은 모델, invscaling: 학습률을 점점 줄여나감
+        # # wandb 연결
+        # wandb.login()
+        # with wandb.init(project="RankFM", entity="recsys16", config=vars(args)):
+        #     args = wandb.config
+        #     model = model
+        #     # early_stopping = EarlyStopping(args.checkpoint_path, patience=10, verbose=True)
+        #
+        # # 훈련시키기
+        #     for epoch in range(args.epochs):
+        #         print('current epoch:', epoch)
+        #         # 데이터 셋(user_id/item_id)을 train/valid 로 나눈다
+        #         interaction['random'] = np.random.random(size=len(interaction))
+        #         test_pct = 0.20
+        #         train_mask = interaction['random'] < (1 - test_pct)
+        #         valid_mask = interaction['random'] >= (1 - test_pct)
+        #
+        #         interactions_train = interaction[train_mask][['user_id', 'item_id']]
+        #         interactions_valid = interaction[valid_mask][['user_id', 'item_id']]
+        #
+        #         # 존재하는 아이템 벡터만 사용하기 위해서
+        #         train_items = np.sort(interactions_train.item_id.unique())
+        #         valid_items = np.sort(interactions_valid.item_id.unique())
+        #         cold_start_items = set(valid_items) - set(train_items)
+        #         print('cold start items: ', cold_start_items)
+        #
+        #         train_item_features = item_feature[item_feature.item_id.isin(train_items)]
+        #
+        #
+        #         print('model fitting...')
+        #         # 모델 fit 부분
+        #         # log likelihood represents user preferences for observed items over unobserved items
+        #         model.fit_partial(interactions_train, item_features=train_item_features, epochs=1, verbose=True)
+        #
+        #         print('model validing...')
+        #         # valid_set을 이용하여 모델 성능 평가 -> 체크할 지표를 줄이면 훈련 시간 감소!
+        #         print('hit_rate') # 3 ~ 5분 소요
+        #         # model_hit_rate = hit_rate(model, interactions_valid, k=args.k)
+        #
+        #         # print('reiprocal_rank') # 3 ~ 5분 소요
+        #         # model_reciprocal_rank = reciprocal_rank(model, interactions_valid, k=args.k)
+        #         # print('dcg') # 3 ~ 5분 소요
+        #         # model_dcg = discounted_cumulative_gain(model, interactions_valid, k=args.k)
+        #         # print('precision') # 3 ~ 5분 소요
+        #         # model_precision = precision(model, interactions_valid, k=args.k)
+        #         print('recall') # 3 ~ 5분 소요
+        #         # model_recall = recall(model, interactions_valid, k=args.k)
+        #
+        #         # print("hit_rate: {:.3f}".format(model_hit_rate))
+        #         # print("reciprocal_rank: {:.3f}".format(model_reciprocal_rank))
+        #         # print("dcg: {:.3f}".format(model_dcg, 3))
+        #         # print("precision: {:.3f}".format(model_precision))
+        #         # print("recall: {:.3f}".format(model_recall))
+        #
+        #         # wandb.log({'epoch': epoch, 'recall': model_recall, 'hit_rate': hit_rate}) # log 에 담을 값을 자유롭게 추가
+        #         # #generate user-item scores from the validation data
+        #         # valid_scores = model.predict(interactions_valid, cold_start='nan')
+        #
+        # ## early-stopping 을 걸자 (loglikelyhood 값이 몇 회 이상 올라가지 않으면 바로 학습 종료하고 recommend code로 넘거가게 끔)
+        model.fit_partial(interaction[['user_id', 'item_id']], epochs=1, verbose=True)
 
-
-        # 훈련시키기
-        for epoch in range(args.epochs):
-            print('epoch:', epoch)
-            # 데이터 셋(user_id/item_id)을 train/valid 로 나눈다
-            interaction['random'] = np.random.random(size=len(interaction))
-            test_pct = 0.20
-            train_mask = interaction['random'] < (1 - test_pct)
-            valid_mask = interaction['random'] >= (1 - test_pct)
-
-            interactions_train = interaction[train_mask][['user_id', 'item_id']]
-            interactions_valid = interaction[valid_mask][['user_id', 'item_id']]
-
-            # 존재하는 아이템 벡터만 사용하기 위해서
-            train_items = np.sort(interactions_train.item_id.unique())
-            valid_items = np.sort(interactions_valid.item_id.unique())
-            cold_start_items = set(valid_items) - set(train_items)
-            print('cold start items: ', cold_start_items)
-
-            train_item_features = item_feature[item_feature.item_id.isin(train_items)]
-
-
-            print('model fitting...')
-            # 모델 fit 부분
-            # log likelihood represents user preferences for observed items over unobserved items
-            model.fit_partial(interactions_train, item_features=train_item_features, epochs=5, verbose=True)
-
-            print('model validing...')
-            # valid_set을 이용하여 모델 성능 평가
-            print('hit_rate') # 3 ~ 5분 소요
-            model_hit_rate = hit_rate(model, interactions_valid, k=args.k)
-            print('reiprocal_rank') # 3 ~ 5분 소요
-            model_reciprocal_rank = reciprocal_rank(model, interactions_valid, k=args.k)
-            print('dcg') # 3 ~ 5분 소요
-            model_dcg = discounted_cumulative_gain(model, interactions_valid, k=args.k)
-            print('precision') # 3 ~ 5분 소요
-            model_precision = precision(model, interactions_valid, k=args.k)
-            print('recall') # 3 ~ 5분 소요
-            model_recall = recall(model, interactions_valid, k=args.k)
-
-            print("hit_rate: {:.3f}".format(model_hit_rate))
-            print("reciprocal_rank: {:.3f}".format(model_reciprocal_rank))
-            print("dcg: {:.3f}".format(model_dcg, 3))
-            print("precision: {:.3f}".format(model_precision))
-            print("recall: {:.3f}".format(model_recall))
-
-            # #generate user-item scores from the validation data
-            # valid_scores = model.predict(interactions_valid, cold_start='nan')
+        model.predict
 
         print('model recommending...')
+
+
+        user_id = user_feature['user_id'].unique()
         # 모든 유저에 대해 top 10 개를 추천한다 --> 결과를 submission 형태로 바꾸어주는 코드도 필요할 듯 하다, inference 시에 submission
-        valid_recs = model.recommend(user_feature, n_items=10, filter_previous=True, cold_start='drop')
+        valid_recs = model.recommend(user_id, n_items=10, filter_previous=True, cold_start='drop')
+        print('recommend 끝')
         valid_recs.insert(0, 'user_id', valid_recs.index)
-        user_id = valid_recs['user_id'].unique()
-        submission = pd.DataFrame('user_id', 'item_id')
+        print('insert 끝')
+        # valid_recs.to_csv(f"check_{args.model_name}+.csv")
+        print('valid_rec 파일 완성') # 잘 나옴 체크 완료
+        print(valid_recs.head())
 
-        for user in user_id:
-            item_id = valid_recs[valid_recs['user_id'] == user]['item_id'].unique()
-            for item in item_id:
-                submission = submission.append(pd.DataFrame([[user, item]], columns=['user_id', 'item_id']), ignore_index=True)
 
-        submission.to_csv(f"/output/RankFm_{args.model_name}+.csv") # 제출용 submission file 생성
+
+        user_ids = valid_recs['user_id'].unique()
+        print('user들의 수',len(user_ids))
+        print(user_ids)
+
+
+        # submission 형태로 csv 파일 만들기
+        submission = pd.DataFrame(columns=('user', 'item'))
+        for user in user_ids:
+            item_ids = list(valid_recs[valid_recs['user_id'] == user].values[0][1:])
+            ui = []
+            for item in item_ids:
+                ui.append([user, item])
+
+            # print(ui)
+            df = pd.DataFrame(ui, columns=['user', 'item'])
+            submission = pd.concat([submission, df])
+
+        submission.to_csv(f"../data/train/{args.model_name}_submission.csv", index=False) # 제출용 submission file 생성
+        print('submission 파일 생성 완료')
 
 if __name__ == "__main__":
     main()

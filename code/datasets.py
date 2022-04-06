@@ -138,7 +138,7 @@ class SASRecDataset(Dataset):
         self.user_seq = user_seq
         self.test_neg_items = test_neg_items # 안쓰이는 ->sample을 따로 지정해서 사용할 때 쓰던 변수
         self.data_type = data_type
-
+        self.max_len = args.max_seq_length
 
     def __getitem__(self, index):
 

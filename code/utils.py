@@ -375,7 +375,7 @@ def get_FM_data(ratings, genres, full_item):
     # 영화 장르, 감독, 작가 embedding 해보기 --> 장르만 해보자
     full_items = pd.read_csv(full_item)
 
-    print(full_items.head())
+    # print(full_items.head())
 
     mlb = MultiLabelBinarizer()
     labels = mlb.fit_transform(full_items['genres'].values)
