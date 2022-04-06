@@ -197,69 +197,71 @@ def main():
         # 모델 설정 --> args 로 받아서 설정할 수 있는 부분은 설정하도록
         # factors = latent factor rank, [user, item, user-feature, item-feature]
 
-        model = RankFM(factors=15, loss='warp', max_samples=20, alpha=0.01, sigma=0.1, learning_rate=args.lr,
+        # wandb 연결
+        wandb.login()
+        with wandb.init(project="RankFM", entity="recsys16", config=vars(args)):
+            args = wandb.config
+            model = RankFM(factors=15, loss='warp', max_samples=20, alpha=0.01, sigma=0.1, learning_rate=args.lr,
                        learning_schedule='invscaling')  # 상속받은 모델, invscaling: 학습률을 점점 줄여나감
-        # # wandb 연결
-        # wandb.login()
-        # with wandb.init(project="RankFM", entity="recsys16", config=vars(args)):
-        #     args = wandb.config
-        #     model = model
-        #     # early_stopping = EarlyStopping(args.checkpoint_path, patience=10, verbose=True)
-        #
-        # # 훈련시키기
-        #     for epoch in range(args.epochs):
-        #         print('current epoch:', epoch)
-        #         # 데이터 셋(user_id/item_id)을 train/valid 로 나눈다
-        #         interaction['random'] = np.random.random(size=len(interaction))
-        #         test_pct = 0.20
-        #         train_mask = interaction['random'] < (1 - test_pct)
-        #         valid_mask = interaction['random'] >= (1 - test_pct)
-        #
-        #         interactions_train = interaction[train_mask][['user_id', 'item_id']]
-        #         interactions_valid = interaction[valid_mask][['user_id', 'item_id']]
-        #
-        #         # 존재하는 아이템 벡터만 사용하기 위해서
-        #         train_items = np.sort(interactions_train.item_id.unique())
-        #         valid_items = np.sort(interactions_valid.item_id.unique())
-        #         cold_start_items = set(valid_items) - set(train_items)
-        #         print('cold start items: ', cold_start_items)
-        #
-        #         train_item_features = item_feature[item_feature.item_id.isin(train_items)]
-        #
-        #
-        #         print('model fitting...')
-        #         # 모델 fit 부분
-        #         # log likelihood represents user preferences for observed items over unobserved items
-        #         model.fit_partial(interactions_train, item_features=train_item_features, epochs=1, verbose=True)
-        #
-        #         print('model validing...')
-        #         # valid_set을 이용하여 모델 성능 평가 -> 체크할 지표를 줄이면 훈련 시간 감소!
-        #         print('hit_rate') # 3 ~ 5분 소요
-        #         # model_hit_rate = hit_rate(model, interactions_valid, k=args.k)
-        #
-        #         # print('reiprocal_rank') # 3 ~ 5분 소요
-        #         # model_reciprocal_rank = reciprocal_rank(model, interactions_valid, k=args.k)
-        #         # print('dcg') # 3 ~ 5분 소요
-        #         # model_dcg = discounted_cumulative_gain(model, interactions_valid, k=args.k)
-        #         # print('precision') # 3 ~ 5분 소요
-        #         # model_precision = precision(model, interactions_valid, k=args.k)
-        #         print('recall') # 3 ~ 5분 소요
-        #         # model_recall = recall(model, interactions_valid, k=args.k)
-        #
-        #         # print("hit_rate: {:.3f}".format(model_hit_rate))
-        #         # print("reciprocal_rank: {:.3f}".format(model_reciprocal_rank))
-        #         # print("dcg: {:.3f}".format(model_dcg, 3))
-        #         # print("precision: {:.3f}".format(model_precision))
-        #         # print("recall: {:.3f}".format(model_recall))
-        #
-        #         # wandb.log({'epoch': epoch, 'recall': model_recall, 'hit_rate': hit_rate}) # log 에 담을 값을 자유롭게 추가
-        #         # #generate user-item scores from the validation data
-        #         # valid_scores = model.predict(interactions_valid, cold_start='nan')
-        #
-        # ## early-stopping 을 걸자 (loglikelyhood 값이 몇 회 이상 올라가지 않으면 바로 학습 종료하고 recommend code로 넘거가게 끔)
-        model.fit_partial(interaction[['user_id', 'item_id']], epochs=1, verbose=True)
+            # early_stopping = EarlyStopping(args.checkpoint_path, patience=10, verbose=True)
 
-        model.predict
+        # 훈련시키기
+            for epoch in range(args.epochs):
+                print('current epoch:', epoch)
+                # 데이터 셋(user_id/item_id)을 train/valid 로 나눈다
+                interaction['random'] = np.random.random(size=len(interaction))
+                test_pct = 0.20
+                train_mask = interaction['random'] < (1 - test_pct)
+                valid_mask = interaction['random'] >= (1 - test_pct)
+
+                interactions_train = interaction[train_mask][['user_id', 'item_id']]
+                interactions_valid = interaction[valid_mask][['user_id', 'item_id']]
+
+                # 존재하는 아이템 벡터만 사용하기 위해서
+                train_items = np.sort(interactions_train.item_id.unique())
+                valid_items = np.sort(interactions_valid.item_id.unique())
+                cold_start_items = set(valid_items) - set(train_items)
+                print('cold start items: ', cold_start_items)
+
+                train_item_features = item_feature[item_feature.item_id.isin(train_items)]
+
+
+                print('model fitting...')
+                # 모델 fit 부분
+                # log likelihood represents user preferences for observed items over unobserved items
+                model.fit_partial(interactions_train, item_features=train_item_features, epochs=6, verbose=True)
+
+                print('model validing...')
+                # valid_set을 이용하여 모델 성능 평가 -> 체크할 지표를 줄이면 훈련 시간 감소!
+                print('hit_rate') # 3 ~ 5분 소요
+                model_hit_rate = hit_rate(model, interactions_valid, k=args.k)
+
+                # print('reiprocal_rank') # 3 ~ 5분 소요
+                # model_reciprocal_rank = reciprocal_rank(model, interactions_valid, k=args.k)
+                # print('dcg') # 3 ~ 5분 소요
+                # model_dcg = discounted_cumulative_gain(model, interactions_valid, k=args.k)
+                # print('precision') # 3 ~ 5분 소요
+                # model_precision = precision(model, interactions_valid, k=args.k)
+                print('recall') # 3 ~ 5분 소요
+                model_recall = recall(model, interactions_valid, k=args.k)
+
+                wandb.log({
+                    'hit_rate': "{:.3f}".format(model_hit_rate),
+                    'recall': "{:.3f}".format(model_recall)
+                })
+
+
+                print("hit_rate: {:.3f}".format(model_hit_rate))
+                # print("reciprocal_rank: {:.3f}".format(model_reciprocal_rank))
+                # print("dcg: {:.3f}".format(model_dcg, 3))
+                # print("precision: {:.3f}".format(model_precision))
+                print("recall: {:.3f}".format(model_recall))
+
+                # wandb.log({'epoch': epoch, 'recall': model_recall, 'hit_rate': hit_rate}) # log 에 담을 값을 자유롭게 추가
+                # #generate user-item scores from the validation data
+                # valid_scores = model.predict(interactions_valid, cold_start='nan')
+
+        # early-stopping 을 걸자 (loglikelyhood 값이 몇 회 이상 올라가지 않으면 바로 학습 종료하고 recommend code로 넘거가게 끔)
 
         print('model recommending...')
 
