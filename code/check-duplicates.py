@@ -3,24 +3,24 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 def check_duplicates_in_submissions(file1, file2):
-    a = pd.read_csv(file1)  # 서브미션 파일 위치넣기
+    a = pd.read_csv(file1)
     b = pd.read_csv(file2)
 
     # 만약 assertion 에러가 발생하면, csv 파일을 읽어오는 중 unnamed: 0 컬럼이 추가된 데이터에
-    # index_col=[0] 을 read_csv 할 때 던져준다.
+    # index_col=[0] 을 read_csv 할 때 던져준다
     assert a.shape == b.shape, f"shape doesn't match!\na: {a.shape} b: {b.shape}"
 
     users = a['user'].unique()
-    duplicate = pd.DataFrame(columns=('user', 'common', 'common_length')) # (user:31360, 2)
 
     print('making duplicates...') # 2~3분 걸리는듯?
+    df = []
     for user in users:
         a_item = set(a[a['user'] == user]['item'].values)
         b_item = set(b[b['user'] == user]['item'].values)
         common = a_item & b_item
+        df.append([user, common, len(common)])
 
-        df = pd.DataFrame([[user, common, len(common)]], columns=['user', 'common', 'common_length'])
-        duplicate = pd.concat([duplicate, df])
+    duplicate = pd.DataFrame(df, columns=['user', 'common', 'common_length'])
     print('finished!')
     return duplicate
 
