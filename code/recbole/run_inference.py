@@ -3,12 +3,14 @@ import torch
 import numpy as np
 import pandas as pd
 
+from tqdm import tqdm
 from recbole.quick_start import load_data_and_model
+from recbole.utils import set_color
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_path', '-m', type=str, default='saved/model.pth', help='name of models')
+    parser.add_argument('--model_path', '-m', type=str, default='saved/RecVAE-Apr-08-2022_04-47-12.pth', help='name of models')
     
     args, _ = parser.parse_known_args()
     
@@ -29,13 +31,23 @@ if __name__ == '__main__':
     pred_list = None
     user_list = None
     
+    # model 평가모드 전환
     model.eval()
-    for data in test_data:
+    
+    # progress bar 설정
+    tbar = tqdm(test_data, desc=set_color(f"Inference", 'pink'))
+    
+    for data in tbar:
         interaction = data[0].to(device)
         score = model.full_sort_predict(interaction)
-        
+
         rating_pred = score.cpu().data.numpy().copy()
+        
+        # rating_pred가 1차원인 경우 2차원으로 변환
+        if rating_pred.ndim == 1: rating_pred = np.expand_dims(rating_pred, axis=0)
+        
         batch_user_index = interaction['user_id'].cpu().numpy()
+        
         rating_pred[matrix[batch_user_index].toarray() > 0] = 0
         ind = np.argpartition(rating_pred, -10)[:, -10:]
         
