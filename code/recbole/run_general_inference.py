@@ -5,28 +5,26 @@ import pandas as pd
 
 from logging import getLogger
 from tqdm import tqdm
-from recbole.sampler import Sampler
 from recbole.utils import init_logger, get_model, init_seed, set_color 
 from recbole.data import Interaction, data_preparation
-from recbole.data.utils import create_dataset, get_dataloader
-from recbole.quick_start import load_data_and_model
+from recbole.data.utils import create_dataset
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_path', '-m', type=str, default='saved/general_model.pth', help='name of models')
+    parser.add_argument('--model_path', '-m', type=str, default='saved/model.pth', help='name of models')
+    parser.add_argument('--dataset', '-d', type=str, default='ml-rec', help='name of dataset')
+    parser.add_argument('--rank_num', '-k', type=int, default=10, help='num of ranking K')
     
     args, _ = parser.parse_known_args()
     
+    # rank K 설정
+    K = args.rank_num 
+
     # config, model, dataset 불러오기
     checkpoint = torch.load(args.model_path)
     config = checkpoint['config']
-    init_seed(config['seed'], config['reproducibility'])
-    
-
-    config['eval_args']['order'] = 'TO'
-    config['eval_args']['split'] = {'RS': [0, 0, 1.0]}
-    config['eval_neg_sample_args'] = {'strategy': 'none'}
+    config['dataset'] = args.dataset
 
     dataset = create_dataset(config)
     train_data, valid_data, test_data = data_preparation(config, dataset)
@@ -45,14 +43,18 @@ if __name__ == '__main__':
     item_id2token = dataset.field2id_token[item_id]
 
     # user id list
-    all_user_list = torch.arange(1, len(user_id2token))
+    all_user_list = torch.arange(1, len(user_id2token)).view(-1,128)
     
+    # user, item 길이
+    user_len = len(user_id2token)
+    item_len = len(item_id2token)
+
     # user-item sparse matrix
     matrix = dataset.inter_matrix(form='csr')
 
     # user id, predict item id 저장 변수
-    pred_list = []
-    user_list = []
+    pred_list = None
+    user_list = None
     
     # model 평가모드 전환
     model.eval()
@@ -64,12 +66,12 @@ if __name__ == '__main__':
         # interaction 생성
         interaction = dict()
         interaction = Interaction(interaction)
-        interaction[user_id] = data.unsqueeze(0)
+        interaction[user_id] = data
         interaction = interaction.to(device)
 
         # user item별 score 예측
         score = model.full_sort_predict(interaction)
-        if score.ndim == 2: score = score[0]
+        score = score.view(-1, item_len)
         
         rating_pred = score.cpu().data.numpy().copy()
         
@@ -77,24 +79,32 @@ if __name__ == '__main__':
         
         idx = matrix[user_index].toarray() > 0
 
-        rating_pred[idx[0]] = -np.inf
-        rating_pred[0] = -np.inf
-        ind = np.argpartition(rating_pred, -10)[-10:]
+        rating_pred[idx] = -np.inf
+        rating_pred[:, 0] = -np.inf
+        ind = np.argpartition(rating_pred, -K)[:, -K:]
         
-        arr_ind = rating_pred[ind]
+        arr_ind = rating_pred[np.arange(len(rating_pred))[:, None], ind]
 
-        arr_ind_argsort = np.argsort(arr_ind)[::-1]
+        arr_ind_argsort = np.argsort(arr_ind)[np.arange(len(rating_pred)), ::-1]
 
-        batch_pred_list = ind[arr_ind_argsort]
+        batch_pred_list = ind[
+            np.arange(len(rating_pred))[:, None], arr_ind_argsort
+        ]
         
-        pred_list.append(batch_pred_list)
-        user_list.append(user_index)
-        
+        if pred_list is None:
+            pred_list = batch_pred_list
+            user_list = user_index
+        else:
+            pred_list = np.append(pred_list, batch_pred_list, axis=0)
+            user_list = np.append(
+                user_list, user_index, axis=0
+            )
+    
     result = []
     for user, pred in zip(user_list, pred_list):
         for item in pred:
             result.append((int(user_id2token[user]), int(item_id2token[item])))
-            
+
     # 데이터 저장
     dataframe = pd.DataFrame(result, columns=["user", "item"])
     dataframe.sort_values(by='user', inplace=True)
