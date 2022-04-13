@@ -107,7 +107,6 @@ if __name__ == '__main__':
 
     # 데이터 저장
     dataframe = pd.DataFrame(result, columns=["user", "item"])
-    dataframe.sort_values(by='user', inplace=True)
     dataframe.to_csv(
         "submission.csv", index=False
     )
