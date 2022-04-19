@@ -68,7 +68,7 @@ class Trainer:
         post_fix = {
             # "Epoch": epoch,
             "RECALL@5": round(recall[0],4),
-            # "NDCG@5": round(ndcg[0],4),
+            "NDCG@5": round(ndcg[0],4),
             "RECALL@10": round(recall[1],4),
             "NDCG@10": round(ndcg[1],4),
         }
