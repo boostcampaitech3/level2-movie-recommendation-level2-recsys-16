@@ -38,7 +38,7 @@ Shallow Autoencoders)였다. 이외에도 EASE를 발전시킨 ADMM-SLIM과 SLIM
 | [ ![구창회](https://avatars.githubusercontent.com/u/63918561?v=4) ](https://github.com/sonyak-ku) | [ ![김지원](https://avatars.githubusercontent.com/u/97625330?v=4) ](https://github.com/Jiwon1729) | [ ![전민규](https://avatars.githubusercontent.com/u/85151359?v=4) ](https://github.com/alsrb0607) | [ ![정준우](https://avatars.githubusercontent.com/u/39089969?v=4) ](https://github.com/ler0n) |
 |:----------------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------:|
 |                             [ 구창회 ](https://github.com/sonyak-ku)                              |                             [ 김지원 ](https://github.com/Jiwon1729)                              |                              [ 전민규 ](https://github.com/alsrb0607)                             |                              [ 정준우 ](https://github.com/ler0n)                             |
-|                                                 
+|                              RankFM 구현, 모델 앙상블                             |                     BPR 구현, 모델 앙상블                    |                               S3Rec 개선, WandB&Sweep 세팅, 1~2주차 PM(WBS)                              |                        Recbole 라이브러리 inference 제작, 3~4주차 PM          |
 
 
 ## 최종 순위 및 결과
@@ -50,4 +50,5 @@ Shallow Autoencoders)였다. 이외에도 EASE를 발전시킨 ADMM-SLIM과 SLIM
 
 ![image](./images/private-movie.png)
 
+## 참고자료
 - [Wrap-up report & 발표자료](https://www.notion.so/343a3d95a9024967ae56061b697ac233)
