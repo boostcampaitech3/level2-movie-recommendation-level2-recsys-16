@@ -12,7 +12,7 @@ MovieLens 데이터의 일부(31360 users, 6807 items, 5154471 interactions)를 
 ### 모델
 #### 제공된 baseline 코드와 함께 RecBole 라이브러리 사용
 제공된 baseline 코드와 [RecBole 라이브러리](https://github.com/RUCAIBox/RecBole)를 활용, CF, Autoencoder기반의 모델과 S3Rec, GRU4Rec, Bert4Rec 등
-sequential 모델을 포함해 총 37종류의 모델을 학습시키고, 결과를 제출하였다.
+sequential 모델을 포함해 총 37종류의 모델을 학습시키고, 결과를 제출하였다. (recall@10: 0.1600 이 최대)
 
 ### 모델 성능 정리
 
@@ -26,13 +26,22 @@ Shallow Autoencoders)였다. 이외에도 EASE를 발전시킨 ADMM-SLIM과 SLIM
 보여주었다. 이를 통해 추천 시스템에서는 꼭 딥러닝 모델을 쓰는 것이 아닌 데이터에 따라 적절한 모델을 사용하는 것이
 중요하다는 점을 알 수 있었다
 
+### 앙상블 (public recall@10: 0.1600 -> 0.1878)
 
+앙상블 방법은 Voting방식을 사용하였으며, 변수로 수정을 시도한 것은 앙상블 모델을 추가, 삭제하는 것이었다. 이를 통
+해 각 모델이 앙상블의 성능에 미치는 영향을 확인하였다. 그 결과 성능이 좋은 General model만 사용하는 것이 아니라,
+Sequential model을 충분히 같이 앙상블 하였을 때 가장 좋은 효과를 나타냈다.
+그 다음으로는, Top-K 반영 개수를 변경해 보았다. 이를 통해 Top1-10에 없지만 Top11-15에만 정답이 분포하는 경우를 반
+영하고자 했다. 그 결과는 Top1-10만 반영하는 것이 Top11-15를 반영하는 것보다 좋았지만 Top1-10을 반영하는 모델과
+Top11-15를 반영하는 모델을 섞어서 하였을 때 더 좋은 결과가 나타나는 것을 확인하였다.
+이 결과를 바탕으로, Top1-10과 Top11-15에서 나오는 결과의 가중치를 조정하는 실험을 진행하였다. Top1-10과 Top11-15
+의 가중치를 1:1부터 1:0.1까지 줄여서 실험하였으며, 그 결과 1:0.3의 비율로 앙상블 했을 때 가장 좋은 성능을 나타냈다.
 
-## 팀 역할
+## 팀원
 | [ ![구창회](https://avatars.githubusercontent.com/u/63918561?v=4) ](https://github.com/sonyak-ku) | [ ![김지원](https://avatars.githubusercontent.com/u/97625330?v=4) ](https://github.com/Jiwon1729) | [ ![전민규](https://avatars.githubusercontent.com/u/85151359?v=4) ](https://github.com/alsrb0607) | [ ![정준우](https://avatars.githubusercontent.com/u/39089969?v=4) ](https://github.com/ler0n) |
 |:----------------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------:|
 |                             [ 구창회 ](https://github.com/sonyak-ku)                              |                             [ 김지원 ](https://github.com/Jiwon1729)                              |                              [ 전민규 ](https://github.com/alsrb0607)                             |                              [ 정준우 ](https://github.com/ler0n)                             |
-|                             RankFM, 모델 앙상블                              |                        BPR ,앙상블                        |                               S3Rec, WandB&Sweep                             |                                 Recbole, inference                                
+|                                                 
 
 
 ## 최종 순위 및 결과
