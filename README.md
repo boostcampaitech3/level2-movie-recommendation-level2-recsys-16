@@ -49,3 +49,5 @@ Shallow Autoencoders)였다. 이외에도 EASE를 발전시킨 ADMM-SLIM과 SLIM
 |private|  0.1735   | **1위** |
 
 ![image](./images/private-movie.png)
+
+- [Wrap-up report & 발표자료](https://www.notion.so/343a3d95a9024967ae56061b697ac233)
